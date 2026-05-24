@@ -317,8 +317,15 @@ async function main() {
 
   // Post-process: strip any remaining source/attribution junk
   body = body
+    // Strip full markdown links: [text](url) → just the text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Strip bare URLs
+    .replace(/https?:\/\/[^\s)]+/g, "")
+    // Strip org names used as sources
     .replace(/\([Ss]ource:[^)]*\)/g, "")
     .replace(/\([Vv]ia:[^)]*\)/g, "")
+    .replace(/\([Cc]redit[^)]*\)/g, "")
+    // Strip remaining brackets and attribution
     .replace(/\s*\[[^\]]*\]\s*/g, " ")
     .replace(/[Rr]ead\s+(more|original|article)\b[^.]*\.?\s*/gi, "")
     .replace(/according\s+to\s+[^.]+\.?\s*/gi, "")

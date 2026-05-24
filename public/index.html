@@ -369,38 +369,54 @@ function cleanReadMore(s) { return s.replace(/\.?\s*\[?\s*[Rr]ead\s+(more|origin
 function cleanTrailing(s) { return s.replace(/\s*\[\.?\]?\s*$/g, "").trim(); }
 
 // ---- Copy for publish ----
-function copyMarkdown() {
-  if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  let clean = currentNewsletterContent.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+function cleanupForCopy(text) {
+  let clean = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  clean = clean.replace(/https?:\/\/[^\s)]+/g, "");
   clean = cleanReadMore(clean);
   clean = cleanTrailing(clean);
-  navigator.clipboard.writeText(clean).then(() => {
-    showToast("Markdown copied to clipboard!", "success");
+  return clean;
+}
+function copyMarkdown() {
+  if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
+  const md = cleanupForCopy(currentNewsletterContent);
+  navigator.clipboard.writeText(md).then(() => {
+    showToast("Markdown copied — paste into Substack works", "success");
   }).catch(() => showToast("Failed to copy", "error"));
+}
+function substackHtml(text) {
+  const body = mdToHtml(cleanupForCopy(text));
+  const base = "font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;line-height:1.6;color:#111;";
+  return '<div style="max-width:640px;margin:0 auto;padding:20px;' + base + '">'
+    + body
+      .replace(/<p>/g, '<p style="' + base + 'margin:20px 0">')
+      .replace(/<h1>/g, '<h1 style="' + base + 'font-size:32px;font-weight:400;text-align:center;line-height:1.2;margin:0 0 4px">')
+      .replace(/<h2>/g, '<h2 style="' + base + 'font-size:24px;font-weight:500;margin:40px 0 12px;border:none;padding:0">')
+      .replace(/<h3>/g, '<h3 style="' + base + 'font-size:20px;font-weight:500;margin:32px 0 8px">')
+      .replace(/<hr>/g, '<hr style="border:none;border-top:1px solid #e5e5e5;margin:40px 0">')
+      .replace(/<ul>/g, '<ul style="padding-left:24px">')
+      .replace(/<li>/g, '<li style="margin:8px 0">')
+    + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek &middot; <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>'
+    + '</div>';
 }
 function copyHtml() {
   if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  const text = currentNewsletterContent.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
-  const bodyHtml = mdToHtml(cleanTrailing(cleanReadMore(text)));
-  // Inner HTML only — no <html>/<head>/<body> wrapper for Substack compatibility
-  const htmlContent = '<div style="max-width:640px;margin:0 auto;padding:20px;font-family:Georgia,\'Times New Roman\',Times,serif;font-size:20px;line-height:1.6;color:#111">' + bodyHtml + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek &middot; <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p></div>';
-
-  // Write as text/html so Substack renders the formatting, not raw code
+  const htmlContent = substackHtml(currentNewsletterContent);
+  // Substack-friendly copy: paste as formatted text, never raw HTML code
   try {
     const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-    const textBlob = new Blob([''], { type: 'text/plain' });
+    const md = cleanupForCopy(currentNewsletterContent);
+    const textBlob = new Blob([md], { type: 'text/plain' });
     navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })]).then(() => {
-      showToast("HTML copied! Paste into Substack", "success");
-    }).catch(() => {
-      navigator.clipboard.writeText(htmlContent).then(() => {
-        showToast("HTML copied (plain text)", "success");
-      }).catch(() => showToast("Failed to copy", "error"));
-    });
-  } catch (e) {
-    navigator.clipboard.writeText(htmlContent).then(() => {
-      showToast("HTML copied (plain text)", "success");
-    }).catch(() => showToast("Failed to copy", "error"));
-  }
+      showToast("Paste into Substack — formatting preserved", "success");
+    }).catch(() => copyMdFallback());
+  } catch (e) { copyMdFallback(); }
+}
+function copyMdFallback() {
+  // If ClipboardItem API fails, copy clean markdown instead of raw HTML
+  const md = cleanupForCopy(currentNewsletterContent);
+  navigator.clipboard.writeText(md).then(() => {
+    showToast("Copied as markdown (paste into Substack works too)", "success");
+  }).catch(() => showToast("Failed to copy", "error"));
 }
 
 // ---- Newsletter loading ----
