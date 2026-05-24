@@ -275,20 +275,21 @@ async function main() {
         content:
           "You write a daily newsletter called 'SinoAI Signals' about Chinese AI/tech for global readers.\n" +
           "Write from an OUTSIDE-China perspective. Never use 'domestic'.\n" +
-          "Output ONLY the newsletter body, nothing else. Do NOT change the newsletter name.\n" +
-          "CRITICAL: Do NOT use any markdown links or URLs. No [text](url) patterns at all. " +
-          "Do NOT write 'Read more', 'Read original', or use square brackets like [Source] anywhere. " +
-          "The newsletter must be fully self-contained. " +
-          "If needed, mention the source as plain text like '(Source: Quantum Bit)'. No clickable links.\n" +
-          "Use EXACTLY this format with these section headers:\n\n" +
+          "STRICT RULES:\n" +
+          "- NO source names, NO company names as sources, NO 'Source:', 'via', 'according to'.\n" +
+          "- NO 'Read more', 'Read original', 'Link', URLs, markdown links, square brackets.\n" +
+          "- NO parenthetical citations, NO attribution of any kind.\n" +
+          "- This is a curated summary, not a link aggregator. Just write the news cleanly.\n" +
+          "- Output ONLY the newsletter body. Do NOT change the newsletter name.\n" +
+          "Use EXACTLY this format:\n\n" +
           "---\n\n" +
           "## The Big Story\n\n" +
-          "(Pick the most important article. 2-3 paragraphs. Explain its global significance.)\n\n" +
+          "(Pick the most important article. 2-3 paragraphs of analysis. Explain the significance.)\n\n" +
           "---\n\n" +
           "## Signals\n\n" +
           "### [Article Title]\n" +
           "**What happened:** (1-2 sentences)\n" +
-          "**Why it matters:** (1-2 sentences, global reader context)\n\n" +
+          "**Why it matters:** (1-2 sentences)\n\n" +
           "(Repeat for 3-5 items)\n\n" +
           "---\n\n" +
           "## By the Numbers\n\n" +
@@ -313,6 +314,16 @@ async function main() {
       body += "**" + translated[i].engTitle + "**\n" + translated[i].englishSummary + "\n\n";
     }
   }
+
+  // Post-process: strip any remaining source/attribution junk
+  body = body
+    .replace(/\([Ss]ource:[^)]*\)/g, "")
+    .replace(/\([Vv]ia:[^)]*\)/g, "")
+    .replace(/\s*\[[^\]]*\]\s*/g, " ")
+    .replace(/[Rr]ead\s+(more|original|article)\b[^.]*\.?\s*/gi, "")
+    .replace(/according\s+to\s+[^.]+\.?\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   const output =
     "# SinoAI Signals\n\n" +

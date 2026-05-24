@@ -56,16 +56,8 @@
   .preview-bar .label { font-size: 13px; color: #555; margin-right: auto; }
 
   /* ---- Newsletter preview (phone mockup) ---- */
-  .newsletter-preview {
-    display: flex; justify-content: center; padding: 20px 0;
-  }
-  .newsletter-preview .phone-frame {
-    width: 480px; max-width: 100%; background: #fff; color: #111;
-    font-family: Georgia, 'Times New Roman', Times, serif;
-    font-size: 20px; line-height: 1.6;
-    border-radius: 24px; padding: 40px 24px;
-    border: 2px solid #333; box-shadow: 0 8px 40px rgba(0,0,0,.4);
-  }
+  .newsletter-preview { display: flex; justify-content: center; padding: 20px 0; }
+  .newsletter-preview .phone-frame { width: 480px; max-width: 100%; background: #fff; color: #111; font-family: Georgia, 'Times New Roman', Times, serif; font-size: 20px; line-height: 1.6; border-radius: 24px; padding: 40px 24px; border: 2px solid #333; box-shadow: 0 8px 40px rgba(0,0,0,.4); }
   .newsletter-preview .phone-frame h1 { font-size: 32px; font-weight: 400; text-align: center; line-height: 1.2; margin: 0 0 4px; color: #111; }
   .newsletter-preview .phone-frame h2 { font-size: 24px; font-weight: 500; margin: 40px 0 12px; color: #111; border: none; padding: 0; }
   .newsletter-preview .phone-frame h3 { font-size: 20px; font-weight: 500; margin: 32px 0 8px; color: #111; }
@@ -167,7 +159,7 @@
   <div class="subtitle">Dashboard</div>
   <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
   <button class="generate-btn" id="generateBtn" onclick="promptPassword()">+ Generate Now</button>
-  <button class="style-btn" id="styleBtn" onclick="openStyleEditor()">🎨 Style</button>
+  <button class="style-btn" id="styleBtn" onclick="openStyleEditor()">Style</button>
   <nav><ul class="nav-list" id="navList"></ul></nav>
   <div style="position:absolute;bottom:16px;left:20px;right:20px;border-top:1px solid #2a2a3e;padding-top:12px;text-align:center;">
     <span style="font-size:12px;color:#555;display:block;margin-bottom:4px;" id="userLabel">admin</span>
@@ -184,8 +176,8 @@
       <button id="simpleViewBtn" class="active" onclick="setPreviewMode(false)">Dark</button>
       <button id="previewViewBtn" onclick="setPreviewMode(true)">Preview</button>
       <span style="flex:1"></span>
-      <button onclick="copyMarkdown()" title="Copy markdown content">📋 Copy MD</button>
-      <button onclick="copyHtml()" title="Copy HTML for Substack">📋 Copy HTML</button>
+      <button onclick="copyMarkdown()" title="Copy markdown content">Copy MD</button>
+      <button onclick="copyHtml()" title="Copy HTML for Substack">Copy HTML</button>
     </div>
     <div class="content-wrapper">
       <div class="content" id="newsletterContent"></div>
@@ -239,7 +231,7 @@ let adminKey = localStorage.getItem("sinoai_admin_key") || "";
 let previewMode = false;
 let currentNewsletterContent = "";
 
-// ---- Default newsletter CSS (matches index.js HTML template) ----
+// ---- Default newsletter CSS ----
 const defaultNewsletterCss = `
 body {
   font-family: Georgia, 'Times New Roman', Times, serif;
@@ -262,66 +254,29 @@ ul { padding-left: 24px; }
 li { margin: 8px 0; }
 .sub { text-align: center; color: #6b6b6b; font-size: 16px; margin: -4px 0 32px; font-style: italic; }
 .footer { text-align: center; color: #6b6b6b; font-size: 14px; margin-top: 48px; border-top: 1px solid #e5e5e5; padding-top: 24px; font-style: italic; }
-@media (prefers-color-scheme: dark) {
-  body { background: #1a1a2e; color: #e0e0e0; }
-  h1, h2, h3 { color: #f0f0f0; }
-  a { text-decoration-color: #555; }
-  a:hover { text-decoration-color: #aaa; }
-  hr, .footer { border-color: #333; }
-  .sub { color: #999; }
-}
 `.trim();
 
-function getCustomCss() {
-  return localStorage.getItem("sinoai_newsletter_css") || defaultNewsletterCss;
-}
-function setCustomCss(css) {
-  localStorage.setItem("sinoai_newsletter_css", css);
-}
+function getCustomCss() { return localStorage.getItem("sinoai_newsletter_css") || defaultNewsletterCss; }
+function setCustomCss(css) { localStorage.setItem("sinoai_newsletter_css", css); }
 
 // ---- Auth ----
-function showDashboard() {
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("dashboard").style.display = "block";
-  loadList();
-}
-function showLogin() {
-  document.getElementById("loginScreen").style.display = "flex";
-  document.getElementById("dashboard").style.display = "none";
-}
+function showDashboard() { document.getElementById("loginScreen").style.display = "none"; document.getElementById("dashboard").style.display = "block"; loadList(); }
+function showLogin() { document.getElementById("loginScreen").style.display = "flex"; document.getElementById("dashboard").style.display = "none"; }
 
 async function doLogin() {
   const username = document.getElementById("loginUser").value.trim() || "admin";
   const password = document.getElementById("loginPass").value;
-  const btn = document.getElementById("loginBtn");
-  const errEl = document.getElementById("loginError");
-  errEl.style.display = "none";
-  btn.disabled = true; btn.textContent = "Signing in...";
+  const btn = document.getElementById("loginBtn"); const errEl = document.getElementById("loginError");
+  errEl.style.display = "none"; btn.disabled = true; btn.textContent = "Signing in...";
   try {
-    const res = await fetch(API + "/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    const res = await fetch(API + "/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
     if (!res.ok) { errEl.style.display = "block"; return; }
-    localStorage.setItem("sinoai_logged_in", "1");
-    adminKey = password;
-    localStorage.setItem("sinoai_admin_key", password);
+    localStorage.setItem("sinoai_logged_in", "1"); adminKey = password; localStorage.setItem("sinoai_admin_key", password);
     showDashboard();
-  } catch (e) { errEl.textContent = "Network error"; errEl.style.display = "block"; }
-  finally { btn.disabled = false; btn.textContent = "Sign In"; }
+  } catch (e) { errEl.textContent = "Network error"; errEl.style.display = "block"; } finally { btn.disabled = false; btn.textContent = "Sign In"; }
 }
-
-function logout() {
-  localStorage.removeItem("sinoai_logged_in");
-  showLogin();
-}
-
-if (localStorage.getItem("sinoai_logged_in")) {
-  showDashboard();
-} else {
-  showLogin();
-}
+function logout() { localStorage.removeItem("sinoai_logged_in"); showLogin(); }
+if (localStorage.getItem("sinoai_logged_in")) { showDashboard(); } else { showLogin(); }
 
 // ---- Preview mode ----
 function setPreviewMode(mode) {
@@ -331,10 +286,8 @@ function setPreviewMode(mode) {
   const simpleContent = document.getElementById("newsletterContent");
   const previewContent = document.getElementById("newsletterPreview");
   const label = document.getElementById("viewLabel");
-
   simpleBtn.classList.toggle("active", !mode);
   previewBtn.classList.toggle("active", mode);
-
   if (mode) {
     label.textContent = "Display: Newsletter Preview";
     simpleContent.style.display = "none";
@@ -357,74 +310,35 @@ function renderPreview() {
 
 // ---- Style editor ----
 function openStyleEditor() {
-  const overlay = document.getElementById("styleEditor");
   document.getElementById("cssEditor").value = getCustomCss();
   document.getElementById("styleStatus").textContent = "";
-  // Fill the preview pane with current content
   updateStylePreview();
-  overlay.classList.add("show");
+  document.getElementById("styleEditor").classList.add("show");
 }
-
-function closeStyleEditor() {
-  document.getElementById("styleEditor").classList.remove("show");
-}
-
+function closeStyleEditor() { document.getElementById("styleEditor").classList.remove("show"); }
 function updateStylePreview() {
   const css = document.getElementById("cssEditor").value || defaultNewsletterCss;
   const pane = document.getElementById("stylePreviewPane");
   const content = currentNewsletterContent || "### No content selected\n\nSelect a newsletter from the sidebar to see a preview.";
   pane.innerHTML = "<style>" + css + "</style>\n" + mdToHtml(content);
 }
-
-function saveCss() {
-  const css = document.getElementById("cssEditor").value;
-  setCustomCss(css);
-  document.getElementById("styleStatus").textContent = "Styles saved!";
-  document.getElementById("styleStatus").style.color = "#27ae60";
-  // If preview is active, re-render
-  if (previewMode) renderPreview();
-}
-
-function resetCss() {
-  document.getElementById("cssEditor").value = defaultNewsletterCss;
-  updateStylePreview();
-  document.getElementById("styleStatus").textContent = "Reset to default. Save to apply.";
-  document.getElementById("styleStatus").style.color = "#888";
-}
+function saveCss() { setCustomCss(document.getElementById("cssEditor").value); document.getElementById("styleStatus").textContent = "Styles saved!"; document.getElementById("styleStatus").style.color = "#27ae60"; if (previewMode) renderPreview(); }
+function resetCss() { document.getElementById("cssEditor").value = defaultNewsletterCss; updateStylePreview(); document.getElementById("styleStatus").textContent = "Reset to default. Save to apply."; document.getElementById("styleStatus").style.color = "#888"; }
 
 // ---- Toast & modal ----
-function showToast(msg, type) {
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.className = "toast " + type + " show";
-  setTimeout(() => t.classList.remove("show"), 3000);
-}
-
-function promptPassword() {
-  document.getElementById("modal").classList.add("show");
-  document.getElementById("passwordInput").value = "";
-  document.getElementById("passwordError").style.display = "none";
-  document.getElementById("passwordInput").focus();
-}
+function showToast(msg, type) { const t = document.getElementById("toast"); t.textContent = msg; t.className = "toast " + type + " show"; setTimeout(() => t.classList.remove("show"), 3000); }
+function promptPassword() { document.getElementById("modal").classList.add("show"); document.getElementById("passwordInput").value = ""; document.getElementById("passwordError").style.display = "none"; document.getElementById("passwordInput").focus(); }
 function closeModal() { document.getElementById("modal").classList.remove("show"); }
 
 async function doGenerate() {
   const pw = document.getElementById("passwordInput").value;
   document.getElementById("passwordError").style.display = "none";
-  const btn = document.getElementById("generateBtn");
-  btn.disabled = true; btn.textContent = "Triggering...";
+  const btn = document.getElementById("generateBtn"); btn.disabled = true; btn.textContent = "Triggering...";
   try {
-    const res = await fetch(API + "/api/trigger", {
-      method: "POST", headers: { "x-admin-key": pw, "Content-Type": "application/json" },
-    });
-    if (!res.ok) {
-      if (res.status === 401) { document.getElementById("passwordError").style.display = "block"; return; }
-      throw new Error((await res.text()).slice(0, 60));
-    }
-    adminKey = pw; localStorage.setItem("sinoai_admin_key", pw);
-    showToast("Workflow triggered! Check back in ~3 min", "success");
-    closeModal();
-  } catch (e) { showToast("Failed: " + e.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "+ Generate Now"; }
+    const res = await fetch(API + "/api/trigger", { method: "POST", headers: { "x-admin-key": pw, "Content-Type": "application/json" } });
+    if (!res.ok) { if (res.status === 401) { document.getElementById("passwordError").style.display = "block"; return; } throw new Error((await res.text()).slice(0, 60)); }
+    adminKey = pw; localStorage.setItem("sinoai_admin_key", pw); showToast("Workflow triggered! Check back in ~3 min", "success"); closeModal();
+  } catch (e) { showToast("Failed: " + e.message, "error"); } finally { btn.disabled = false; btn.textContent = "+ Generate Now"; }
 }
 
 // ---- Markdown renderer ----
@@ -451,13 +365,8 @@ function mdToHtml(text) {
 }
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\(.+?\)/g,"$1"); }
-
-// ---- Helper: strip meaningless "Read more" / stray brackets ----
 function cleanReadMore(s) { return s.replace(/\.?\s*\[?\s*[Rr]ead\s+(more|original|article)\s*\]?\.?\s*/gi, "").trim(); }
-function cleanTrailing(s) {
-  // Remove orphaned brackets at end: "text [" "text.]" etc
-  return s.replace(/\s*\[\.?\]?\s*$/g, "").trim();
-}
+function cleanTrailing(s) { return s.replace(/\s*\[\.?\]?\s*$/g, "").trim(); }
 
 // ---- Copy for publish ----
 function copyMarkdown() {
@@ -471,12 +380,27 @@ function copyMarkdown() {
 }
 function copyHtml() {
   if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  const css = getCustomCss();
-  const bodyHtml = mdToHtml(currentNewsletterContent);
-  const fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>' + css + '</style></head><body>' + bodyHtml + '<p class="footer"><em>Built with DeepSeek</em> &middot; <a href="https://sinoaisignals.substack.com">Subscribe</a></p></body></html>';
-  navigator.clipboard.writeText(fullHtml).then(() => {
-    showToast("HTML copied to clipboard!", "success");
-  }).catch(() => showToast("Failed to copy", "error"));
+  const text = currentNewsletterContent.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  const bodyHtml = mdToHtml(cleanTrailing(cleanReadMore(text)));
+  // Inner HTML only — no <html>/<head>/<body> wrapper for Substack compatibility
+  const htmlContent = '<div style="max-width:640px;margin:0 auto;padding:20px;font-family:Georgia,\'Times New Roman\',Times,serif;font-size:20px;line-height:1.6;color:#111">' + bodyHtml + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek &middot; <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p></div>';
+
+  // Write as text/html so Substack renders the formatting, not raw code
+  try {
+    const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+    const textBlob = new Blob([''], { type: 'text/plain' });
+    navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })]).then(() => {
+      showToast("HTML copied! Paste into Substack", "success");
+    }).catch(() => {
+      navigator.clipboard.writeText(htmlContent).then(() => {
+        showToast("HTML copied (plain text)", "success");
+      }).catch(() => showToast("Failed to copy", "error"));
+    });
+  } catch (e) {
+    navigator.clipboard.writeText(htmlContent).then(() => {
+      showToast("HTML copied (plain text)", "success");
+    }).catch(() => showToast("Failed to copy", "error"));
+  }
 }
 
 // ---- Newsletter loading ----
@@ -498,13 +422,11 @@ async function loadNewsletter(date) {
     document.getElementById("newsletterTitle").textContent = "SinoAI Signals";
     document.getElementById("newsletterDate").textContent = data.date;
 
-    // Render both views
     document.getElementById("newsletterContent").innerHTML = mdToHtml(data.content);
     renderPreview();
 
     document.getElementById("loading").style.display = "none";
     document.getElementById("contentArea").style.display = "block";
-    // Ensure correct visibility based on current mode
     setPreviewMode(previewMode);
   } catch (e) {
     document.getElementById("loading").style.display = "none";
@@ -524,26 +446,19 @@ async function loadList() {
       nav.innerHTML = '<li style="padding:8px 20px;color:#555;font-size:13px">No newsletters</li>';
       document.getElementById("loading").style.display = "none";
       document.getElementById("emptyState").style.display = "block";
-      statusDot.className = "dot idle";
-      statusText.textContent = "Waiting for first issue";
-      return;
+      statusDot.className = "dot idle"; statusText.textContent = "Waiting for first issue"; return;
     }
     for (const n of data.newsletters) {
       const a = document.createElement("a");
-      a.href = "#"; a.textContent = n.date;
-      a.dataset.date = n.date;
+      a.href = "#"; a.textContent = n.date; a.dataset.date = n.date;
       a.onclick = (e) => { e.preventDefault(); loadNewsletter(n.date); };
-      const li = document.createElement("li");
-      li.appendChild(a);
-      nav.appendChild(li);
+      const li = document.createElement("li"); li.appendChild(a); nav.appendChild(li);
     }
-    statusDot.className = "dot idle";
-    statusText.textContent = data.newsletters.length + " issues";
+    statusDot.className = "dot idle"; statusText.textContent = data.newsletters.length + " issues";
     const firstNav = nav.querySelector("a");
     if (firstNav) loadNewsletter(data.newsletters[0].date);
   } catch (e) {
-    statusDot.className = "dot idle";
-    statusText.textContent = "Offline";
+    statusDot.className = "dot idle"; statusText.textContent = "Offline";
     document.getElementById("loading").style.display = "none";
   }
 }
