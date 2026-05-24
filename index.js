@@ -325,10 +325,11 @@ async function main() {
     .replace(/\([Ss]ource:[^)]*\)/g, "")
     .replace(/\([Vv]ia:[^)]*\)/g, "")
     .replace(/\([Cc]redit[^)]*\)/g, "")
-    // Strip remaining brackets and attribution
+    // Strip remaining brackets (safety net)
     .replace(/\s*\[[^\]]*\]\s*/g, " ")
-    .replace(/[Rr]ead\s+(more|original|article)\b[^.]*\.?\s*/gi, "")
-    .replace(/according\s+to\s+[^.]+\.?\s*/gi, "")
+    // Strip "Read more" and trailing text — ONE LINE ONLY, don't eat across paragraphs
+    .replace(/[Rr]ead\s+(more|original|article)\b[^.\n]*\.?\s*/gi, "")
+    .replace(/according\s+to\s+[^.\n]+\.?\s*/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 
