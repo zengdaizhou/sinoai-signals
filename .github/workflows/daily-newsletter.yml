@@ -24,8 +24,6 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          SUBSTACK_SESSION_ID: ${{ secrets.SUBSTACK_SESSION_ID }}
-          SUBSTACK_PUBLISH: "false"
         run: |
           set +e
           node index.js > newsletter.md 2> run.log
