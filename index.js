@@ -260,7 +260,7 @@ async function publishToSubstack(bodyMarkdown, newsletterDate) {
   }
   try {
     const pubUrl = "https://sinoaisignals.substack.com";
-    const client = new SubstackClient({ baseUrl: pubUrl });
+    const client = new SubstackClient();
     await client.authenticate({ sessionId });
     const title = "SinoAI Signals — " + newsletterDate;
     const tipTapBody = markdownToTipTap(bodyMarkdown);
