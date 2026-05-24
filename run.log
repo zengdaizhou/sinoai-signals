@@ -1,0 +1,28 @@
+[1/4] Fetching RSS feeds...
+[OK] Quantum Bit: 10 items
+[OK] 36Kr: 30 items
+[OK] iFanr: 20 items
+[OK] IT Home: 60 items
+[OK] Leiphone: 20 items
+
+[2/4] Filtering...
+  16 relevant articles (removed 68)
+
+[3/4] Translating 8 articles...
+  [1/8] 圆桌对话：下一个杀手级AI产品，会出现在哪个赛道？| 2026AI Partner·北京亦庄AI+产业大会
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [2/8] 华为自研全新 DoB 封装技术：绕过 400 层 NAND 造出 122TB 企业级 SSD，未来还计划推出 245TB
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [3/8] 数字华夏发布新一代人形机器人“星行侠P2”，加速机器人场景落地
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [4/8] 全国首个开源鸿蒙机器人操作系统 M-Robots OS 2.0 版本发布
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [5/8] 企业强推 AI 提效遇反效果：AI 成本已超人力
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [6/8] 第 56 届 IEEE ISCAS 会议在上海召开，华为董事何庭波、中国科大潘建伟院士发表演讲
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [7/8] 英国公关行业吐槽：大量企业借 AI 热潮炒作包装自身
+    └─ error: Authentication Fails, Your api key: ****ined is in
+  [8/8] 国内单体最大智能组串式储能电站落地内蒙古包头，搭载 1944 台华为智能组串式构网 PCS
+    └─ error: Authentication Fails, Your api key: ****ined is in
+[ERROR] No articles translated.

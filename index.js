@@ -13,7 +13,28 @@ const SOURCES = [
 ];
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
-const API_URL = "https://api.deepseek.com/chat/completions";
+const OR_KEY = process.env.OPENROUTER_API_KEY;
+
+// Use OpenRouter if available (works from GitHub Actions), fall back to direct DeepSeek
+function getApiConfig() {
+  if (OR_KEY) {
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      key: OR_KEY,
+      model: "deepseek/deepseek-chat",
+      headers: {
+        "HTTP-Referer": "https://sinoaisignals.substack.com",
+        "X-Title": "SinoAI Signals",
+      },
+    };
+  }
+  return {
+    url: "https://api.deepseek.com/chat/completions",
+    key: API_KEY,
+    model: "deepseek-chat",
+    headers: {},
+  };
+}
 
 function stripHtml(html) {
   if (!html) return "";
@@ -117,14 +138,19 @@ async function fetchArticleContent(url) {
 }
 
 async function callDeepSeek(messages) {
-  const body = { model: "deepseek-chat", messages, stream: false };
-  const res = await fetch(API_URL, {
+  const cfg = getApiConfig();
+  const body = { model: cfg.model, messages, stream: false };
+  const res = await fetch(cfg.url, {
     method: "POST",
-    headers: { Authorization: "Bearer " + API_KEY, "Content-Type": "application/json" },
+    headers: {
+      Authorization: "Bearer " + cfg.key,
+      "Content-Type": "application/json",
+      ...cfg.headers,
+    },
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || res.status);
+  if (!res.ok) throw new Error(data?.error?.message || data?.error?.code || res.status);
   return data?.choices?.[0]?.message?.content || "";
 }
 
