@@ -1,0 +1,48 @@
+name: Daily Newsletter
+
+on:
+  schedule:
+    # Run at 8:00 AM Beijing time (0:00 UTC) daily
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Generate Newsletter
+        id: newsletter
+        run: |
+          node index.js > newsletter.md 2> run.log
+          echo "Status: $?"
+          echo "Logs:"
+          cat run.log
+
+      - name: Upload Newsletter
+        uses: actions/upload-artifact@v4
+        with:
+          name: newsletter
+          path: newsletter.md
+
+      - name: Send to Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            cat newsletter.md | head -c 4000 > /tmp/telegram_msg.txt
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              -d "text=$(cat /tmp/telegram_msg.txt)" \
+              -d "parse_mode=Markdown" > /dev/null
+            echo "Telegram notification sent"
+          fi
