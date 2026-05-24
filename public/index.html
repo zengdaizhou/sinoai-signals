@@ -16,9 +16,11 @@
   .sidebar .status .dot.running { background: #f0ad4e; animation: pulse 1.5s infinite; }
   .sidebar .status .dot.idle { background: #4cc9f0; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-  .sidebar .generate-btn { display: block; margin: 0 20px 20px; padding: 10px; background: #e94560; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  .sidebar .generate-btn { display: block; margin: 0 20px 10px; padding: 10px; background: #e94560; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s; width: calc(100% - 40px); }
   .sidebar .generate-btn:hover { opacity: 0.85; }
   .sidebar .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .sidebar .style-btn { display: block; margin: 0 20px 20px; padding: 8px; background: transparent; color: #888; border: 1px solid #2a2a3e; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .2s; width: calc(100% - 40px); }
+  .sidebar .style-btn:hover { color: #fff; border-color: #555; }
   .nav-list { list-style: none; }
   .nav-list li a { display: block; padding: 8px 20px; color: #888; font-size: 13px; text-decoration: none; transition: all .15s; border-left: 3px solid transparent; }
   .nav-list li a:hover { color: #fff; background: rgba(255,255,255,.05); }
@@ -44,6 +46,62 @@
   .toast.show { opacity: 1; }
   .toast.success { background: #27ae60; }
   .toast.error { background: #e74c3c; }
+
+  /* ---- Preview bar ---- */
+  .preview-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+  .preview-bar button { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid #2a2a3e; background: transparent; color: #888; transition: all .15s; }
+  .preview-bar button:hover { border-color: #e94560; color: #fff; }
+  .preview-bar button.active { background: #e94560; color: #fff; border-color: #e94560; }
+  .preview-bar .label { font-size: 13px; color: #555; margin-right: auto; }
+
+  /* ---- Newsletter preview (light theme) ---- */
+  .newsletter-preview {
+    background: #fff; color: #1a1a1a; max-width: 680px; margin: 0 auto;
+    padding: 40px 32px; border-radius: 4px; font-family: Georgia, serif;
+    font-size: 18px; line-height: 1.6;
+  }
+  .newsletter-preview h1 { font-size: 28px; text-align: center; margin: 24px 0 4px; color: #1a1a1a; }
+  .newsletter-preview h2 { font-size: 22px; margin: 32px 0 12px; color: #c0392b; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+  .newsletter-preview h3 { font-size: 18px; margin: 24px 0 8px; color: #1a1a1a; }
+  .newsletter-preview p { margin: 14px 0; }
+  .newsletter-preview a { color: #2980b9; }
+  .newsletter-preview hr { border: none; border-top: 1px solid #ddd; margin: 32px 0; }
+  .newsletter-preview ul { padding-left: 24px; margin: 8px 0; }
+  .newsletter-preview li { margin: 6px 0; color: #1a1a1a; }
+  .newsletter-preview strong { color: #1a1a1a; }
+  .newsletter-preview em { color: #555; }
+  .newsletter-preview .sub { text-align: center; color: #888; font-size: 15px; margin: -4px 0 24px; }
+  .newsletter-preview .footer { text-align: center; color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
+
+  /* ---- Style editor ---- */
+  .style-editor-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 60; justify-content: center; align-items: center; }
+  .style-editor-overlay.show { display: flex; }
+  .style-editor { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 12px; width: 880px; max-width: 92vw; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
+  .style-editor-header { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid #2a2a3e; }
+  .style-editor-header h3 { font-size: 15px; color: #fff; margin: 0; }
+  .style-editor-header span { margin-left: auto; font-size: 12px; color: #555; }
+  .style-editor-body { display: flex; flex: 1; min-height: 420px; overflow: hidden; }
+  .style-editor-body .left { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #2a2a3e; }
+  .style-editor-body .left textarea { flex: 1; background: #0f0f1a; color: #e0e0e0; border: none; padding: 16px; font-family: 'SF Mono', 'Menlo', 'Monaco', monospace; font-size: 13px; resize: none; outline: none; line-height: 1.5; tab-size: 2; }
+  .style-editor-body .right { flex: 1; overflow-y: auto; background: #fff; }
+  .style-editor-body .right .preview-inner { padding: 32px 24px; max-width: 680px; margin: 0 auto; font-family: Georgia, serif; font-size: 18px; line-height: 1.6; color: #1a1a1a; }
+  .style-editor-body .right .preview-inner h1 { font-size: 28px; text-align: center; margin: 24px 0 4px; }
+  .style-editor-body .right .preview-inner h2 { font-size: 22px; margin: 32px 0 12px; color: #c0392b; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+  .style-editor-body .right .preview-inner h3 { font-size: 18px; margin: 24px 0 8px; }
+  .style-editor-body .right .preview-inner a { color: #2980b9; }
+  .style-editor-body .right .preview-inner hr { border: none; border-top: 1px solid #ddd; margin: 32px 0; }
+  .style-editor-body .right .preview-inner p { margin: 14px 0; }
+  .style-editor-body .right .preview-inner ul { padding-left: 24px; }
+  .style-editor-body .right .preview-inner li { margin: 6px 0; }
+  .style-editor-actions { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid #2a2a3e; justify-content: flex-end; align-items: center; }
+  .style-editor-actions .status-msg { font-size: 12px; color: #666; margin-right: auto; }
+  .style-editor-actions button { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; }
+  .style-editor-actions .save-btn { background: #e94560; color: #fff; }
+  .style-editor-actions .save-btn:hover { opacity: .85; }
+  .style-editor-actions .cancel-btn { background: #2a2a3e; color: #888; }
+  .style-editor-actions .cancel-btn:hover { color: #fff; }
+  .style-editor-actions .reset-btn { background: transparent; color: #555; font-size: 12px; }
+  .style-editor-actions .reset-btn:hover { color: #e74c3c; }
 
   /* ---- Login screen ---- */
   .login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -76,6 +134,8 @@
   @media (max-width: 768px) {
     .sidebar { position: static; width: 100%; height: auto; }
     .main { margin-left: 0; padding: 24px 16px; }
+    .style-editor { width: 100vw; max-width: 100vw; max-height: 100vh; border-radius: 0; }
+    .style-editor-body { flex-direction: column; min-height: 300px; }
   }
 </style>
 </head>
@@ -100,6 +160,7 @@
   <div class="subtitle">Dashboard</div>
   <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
   <button class="generate-btn" id="generateBtn" onclick="promptPassword()">+ Generate Now</button>
+  <button class="style-btn" id="styleBtn" onclick="openStyleEditor()">🎨 Style</button>
   <nav><ul class="nav-list" id="navList"></ul></nav>
   <div style="position:absolute;bottom:16px;left:20px;right:20px;border-top:1px solid #2a2a3e;padding-top:12px;text-align:center;">
     <span style="font-size:12px;color:#555;display:block;margin-bottom:4px;" id="userLabel">admin</span>
@@ -111,7 +172,13 @@
   <div id="contentArea" style="display:none">
     <h2 id="newsletterTitle">SinoAI Signals</h2>
     <p class="date" id="newsletterDate"></p>
+    <div class="preview-bar">
+      <span class="label" id="viewLabel">Display: Dark</span>
+      <button id="simpleViewBtn" class="active" onclick="setPreviewMode(false)">Dark</button>
+      <button id="previewViewBtn" onclick="setPreviewMode(true)">Preview</button>
+    </div>
     <div class="content" id="newsletterContent"></div>
+    <div class="newsletter-preview" id="newsletterPreview" style="display:none"></div>
   </div>
   <div class="empty" id="emptyState">
     <p>No newsletters yet</p>
@@ -131,9 +198,71 @@
     </div>
   </div>
 </div>
+<div class="style-editor-overlay" id="styleEditor">
+  <div class="style-editor">
+    <div class="style-editor-header">
+      <h3>Newsletter Style Editor</h3>
+      <span>Customize the newsletter template CSS</span>
+    </div>
+    <div class="style-editor-body">
+      <div class="left">
+        <textarea id="cssEditor" spellcheck="false" oninput="updateStylePreview()"></textarea>
+      </div>
+      <div class="right">
+        <div class="preview-inner" id="stylePreviewPane"></div>
+      </div>
+    </div>
+    <div class="style-editor-actions">
+      <span class="status-msg" id="styleStatus"></span>
+      <button class="reset-btn" onclick="resetCss()">Reset to default</button>
+      <button class="cancel-btn" onclick="closeStyleEditor()">Cancel</button>
+      <button class="save-btn" onclick="saveCss()">Save Styles</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = "";
 let adminKey = localStorage.getItem("sinoai_admin_key") || "";
+let previewMode = false;
+let currentNewsletterContent = "";
+
+// ---- Default newsletter CSS (matches index.js HTML template) ----
+const defaultNewsletterCss = `
+body {
+  font-family: Georgia, serif;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px;
+  color: #1a1a1a;
+  line-height: 1.6;
+  font-size: 18px;
+}
+h1 { font-size: 28px; text-align: center; margin-bottom: 4px; }
+h2 { font-size: 22px; margin-top: 32px; color: #c0392b; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+h3 { font-size: 18px; margin-top: 24px; }
+a { color: #2980b9; }
+hr { border: none; border-top: 1px solid #ddd; margin: 32px 0; }
+p { margin: 14px 0; }
+ul { padding-left: 24px; }
+li { margin: 6px 0; }
+.sub { text-align: center; color: #888; font-size: 15px; margin-top: -8px; }
+.footer { text-align: center; color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
+@media (prefers-color-scheme: dark) {
+  body { background: #1a1a2e; color: #e0e0e0; }
+  h2 { color: #e94560; border-bottom-color: #333; }
+  a { color: #4cc9f0; }
+  hr { border-top-color: #333; }
+  .footer, .sub { color: #888; }
+}
+`.trim();
+
+function getCustomCss() {
+  return localStorage.getItem("sinoai_newsletter_css") || defaultNewsletterCss;
+}
+function setCustomCss(css) {
+  localStorage.setItem("sinoai_newsletter_css", css);
+}
 
 // ---- Auth ----
 function showDashboard() {
@@ -173,13 +302,84 @@ function logout() {
   showLogin();
 }
 
-// ---- Auto-login check ----
 if (localStorage.getItem("sinoai_logged_in")) {
   showDashboard();
 } else {
   showLogin();
 }
 
+// ---- Preview mode ----
+function setPreviewMode(mode) {
+  previewMode = mode;
+  const simpleBtn = document.getElementById("simpleViewBtn");
+  const previewBtn = document.getElementById("previewViewBtn");
+  const simpleContent = document.getElementById("newsletterContent");
+  const previewContent = document.getElementById("newsletterPreview");
+  const label = document.getElementById("viewLabel");
+
+  simpleBtn.classList.toggle("active", !mode);
+  previewBtn.classList.toggle("active", mode);
+
+  if (mode) {
+    label.textContent = "Display: Newsletter Preview";
+    simpleContent.style.display = "none";
+    previewContent.style.display = "block";
+    renderPreview();
+  } else {
+    label.textContent = "Display: Dark";
+    simpleContent.style.display = "block";
+    previewContent.style.display = "none";
+  }
+}
+
+function renderPreview() {
+  const el = document.getElementById("newsletterPreview");
+  if (!currentNewsletterContent) return;
+  const css = getCustomCss();
+  const bodyHtml = mdToHtml(currentNewsletterContent);
+  // We inject CSS only within the container — no iframe needed
+  el.style.cssText = "";
+  el.innerHTML = "<style>" + css + "</style>\n" + bodyHtml;
+}
+
+// ---- Style editor ----
+function openStyleEditor() {
+  const overlay = document.getElementById("styleEditor");
+  document.getElementById("cssEditor").value = getCustomCss();
+  document.getElementById("styleStatus").textContent = "";
+  // Fill the preview pane with current content
+  updateStylePreview();
+  overlay.classList.add("show");
+}
+
+function closeStyleEditor() {
+  document.getElementById("styleEditor").classList.remove("show");
+}
+
+function updateStylePreview() {
+  const css = document.getElementById("cssEditor").value || defaultNewsletterCss;
+  const pane = document.getElementById("stylePreviewPane");
+  const content = currentNewsletterContent || "### No content selected\n\nSelect a newsletter from the sidebar to see a preview.";
+  pane.innerHTML = "<style>" + css + "</style>\n" + mdToHtml(content);
+}
+
+function saveCss() {
+  const css = document.getElementById("cssEditor").value;
+  setCustomCss(css);
+  document.getElementById("styleStatus").textContent = "Styles saved!";
+  document.getElementById("styleStatus").style.color = "#27ae60";
+  // If preview is active, re-render
+  if (previewMode) renderPreview();
+}
+
+function resetCss() {
+  document.getElementById("cssEditor").value = defaultNewsletterCss;
+  updateStylePreview();
+  document.getElementById("styleStatus").textContent = "Reset to default. Save to apply.";
+  document.getElementById("styleStatus").style.color = "#888";
+}
+
+// ---- Toast & modal ----
 function showToast(msg, type) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.className = "toast " + type + " show";
@@ -214,6 +414,7 @@ async function doGenerate() {
   finally { btn.disabled = false; btn.textContent = "+ Generate Now"; }
 }
 
+// ---- Markdown renderer ----
 function mdToHtml(text) {
   const lines = text.split("\n");
   let html = "", inList = false;
@@ -238,6 +439,7 @@ function mdToHtml(text) {
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>'); }
 
+// ---- Newsletter loading ----
 async function loadNewsletter(date) {
   document.getElementById("loading").style.display = "block";
   document.getElementById("contentArea").style.display = "none";
@@ -248,14 +450,22 @@ async function loadNewsletter(date) {
     if (!res.ok) throw new Error("Not found");
     const data = await res.json();
     if (!data || !data.content) throw new Error("Empty");
+    currentNewsletterContent = data.content;
+
     document.querySelectorAll(".nav-list a").forEach(a => a.classList.remove("active"));
     const navLink = document.querySelector(`.nav-list a[data-date="${data.date}"]`);
     if (navLink) navLink.classList.add("active");
     document.getElementById("newsletterTitle").textContent = "SinoAI Signals";
     document.getElementById("newsletterDate").textContent = data.date;
+
+    // Render both views
     document.getElementById("newsletterContent").innerHTML = mdToHtml(data.content);
+    renderPreview();
+
     document.getElementById("loading").style.display = "none";
     document.getElementById("contentArea").style.display = "block";
+    // Ensure correct visibility based on current mode
+    setPreviewMode(previewMode);
   } catch (e) {
     document.getElementById("loading").style.display = "none";
     document.getElementById("emptyState").style.display = "block";
