@@ -25,9 +25,10 @@
   .nav-list li a { display: block; padding: 8px 20px; color: #888; font-size: 13px; text-decoration: none; transition: all .15s; border-left: 3px solid transparent; }
   .nav-list li a:hover { color: #fff; background: rgba(255,255,255,.05); }
   .nav-list li a.active { color: #fff; border-left-color: #e94560; background: rgba(233,69,96,.1); }
-  .main { margin-left: 260px; padding: 32px 48px; max-width: 900px; }
+  .main { margin-left: 260px; padding: 32px 48px; }
   .main h2 { font-size: 22px; margin-bottom: 4px; color: #fff; }
   .main .date { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .content-wrapper { max-width: 560px; }
   .content { line-height: 1.7; font-size: 16px; }
   .content h1 { font-size: 26px; text-align: center; margin: 24px 0 4px; color: #fff; }
   .content h2 { font-size: 20px; margin: 28px 0 12px; color: #e94560; border-bottom: 1px solid #2a2a3e; padding-bottom: 6px; }
@@ -182,9 +183,14 @@
       <span class="label" id="viewLabel">Display: Dark</span>
       <button id="simpleViewBtn" class="active" onclick="setPreviewMode(false)">Dark</button>
       <button id="previewViewBtn" onclick="setPreviewMode(true)">Preview</button>
+      <span style="flex:1"></span>
+      <button onclick="copyMarkdown()" title="Copy markdown content">📋 Copy MD</button>
+      <button onclick="copyHtml()" title="Copy HTML for Substack">📋 Copy HTML</button>
     </div>
-    <div class="content" id="newsletterContent"></div>
-    <div class="newsletter-preview" id="newsletterPreview" style="display:none"></div>
+    <div class="content-wrapper">
+      <div class="content" id="newsletterContent"></div>
+      <div class="newsletter-preview" id="newsletterPreview" style="display:none"></div>
+    </div>
   </div>
   <div class="empty" id="emptyState">
     <p>No newsletters yet</p>
@@ -444,9 +450,24 @@ function mdToHtml(text) {
   return html;
 }
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-const CN_DOMAINS = ["qbitai.com","36kr.com","ifanr.com","ithome.com","leiphone.com","tmtpost.com"];
-function isCnLink(url) { try { return CN_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch(e) { return false; } }
-function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,(m,t,u) => isCnLink(u) ? t : '<a href="'+esc(u)+'">'+t+'</a>'); }
+function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\(.+?\)/g,"$1"); }
+
+// ---- Copy for publish ----
+function copyMarkdown() {
+  if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
+  navigator.clipboard.writeText(currentNewsletterContent).then(() => {
+    showToast("Markdown copied to clipboard!", "success");
+  }).catch(() => showToast("Failed to copy", "error"));
+}
+function copyHtml() {
+  if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
+  const css = getCustomCss();
+  const bodyHtml = mdToHtml(currentNewsletterContent);
+  const fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>' + css + '</style></head><body>' + bodyHtml + '<p class="footer"><em>Built with DeepSeek</em> &middot; <a href="https://sinoaisignals.substack.com">Subscribe</a></p></body></html>';
+  navigator.clipboard.writeText(fullHtml).then(() => {
+    showToast("HTML copied to clipboard!", "success");
+  }).catch(() => showToast("Failed to copy", "error"));
+}
 
 // ---- Newsletter loading ----
 async function loadNewsletter(date) {

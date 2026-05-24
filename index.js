@@ -217,10 +217,8 @@ function htmlBody(bodyMarkdown) {
   if (inList) html += "</ul>\n";
   return html;
 }
-const CN_DOMAINS = ["qbitai.com","36kr.com","ifanr.com","ithome.com","leiphone.com","tmtpost.com"];
-function isCnLink(url) { try { return CN_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch(e) { return false; } }
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,(m,t,u) => isCnLink(u) ? t : '<a href="'+esc(u)+'">'+t+'</a>'); }
+function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\(.+?\)/g,"$1"); }
 
 async function main() {
   console.error("[1/4] Fetching RSS feeds...");
@@ -276,7 +274,8 @@ async function main() {
           "You write a daily newsletter called 'SinoAI Signals' about Chinese AI/tech for global readers.\n" +
           "Write from an OUTSIDE-China perspective. Never use 'domestic'.\n" +
           "Output ONLY the newsletter body, nothing else. Do NOT change the newsletter name.\n" +
-          "IMPORTANT: Do NOT include clickable links/URLs. The newsletter should be self-contained. Mention source names as text instead (e.g. '(Source: Quantum Bit)' or 'according to a 36Kr report'). No markdown links, no bare URLs.\n" +
+          "CRITICAL: Do NOT use any markdown links or URLs. No [text](url) patterns at all. The newsletter must be fully self-contained.\n" +
+          "If needed, mention the source as plain text like '(Source: Quantum Bit)'. No clickable links.\n" +
           "Use EXACTLY this format with these section headers:\n\n" +
           "---\n\n" +
           "## The Big Story\n\n" +
@@ -285,8 +284,7 @@ async function main() {
           "## Signals\n\n" +
           "### [Article Title]\n" +
           "**What happened:** (1-2 sentences)\n" +
-          "**Why it matters:** (1-2 sentences, global reader context)\n" +
-          "(Source: [name])\n\n" +
+          "**Why it matters:** (1-2 sentences, global reader context)\n\n" +
           "(Repeat for 3-5 items)\n\n" +
           "---\n\n" +
           "## By the Numbers\n\n" +
