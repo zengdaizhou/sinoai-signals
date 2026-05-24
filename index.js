@@ -195,7 +195,7 @@ async function translateArticle(item) {
 
 function parseInlineMarkdown(mdText) {
   const tokens = [];
-  let remaining = text;
+  let remaining = mdText;
   while (remaining.length > 0) {
     const boldMatch = remaining.match(/^\*\*(.+?)\*\*/);
     if (boldMatch) { tokens.push(bold(boldMatch[1])); remaining = remaining.slice(boldMatch[0].length); continue; }
