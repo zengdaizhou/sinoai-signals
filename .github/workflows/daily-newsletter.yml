@@ -64,12 +64,28 @@ jobs:
           git add "archive/$DATE.md" "archive/$DATE.html" 2>/dev/null || git add "archive/$DATE.md"
           git diff --staged --quiet || (git commit -m "Archive newsletter $DATE" && git push)
 
+      - name: Publish to Substack
+        if: steps.newsletter.outputs.exit_code == 0
+        env:
+          SUBSTACK_SID: ${{ secrets.SUBSTACK_SID }}
+          SUBSTACK_URL: ${{ secrets.SUBSTACK_URL }}
+        run: |
+          if [ -z "$SUBSTACK_SID" ]; then
+            echo "SUBSTACK_SID not set, skipping publish"
+            exit 0
+          fi
+          node publish.js 2>&1
+
       - name: Send to Telegram
-        if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram not configured, skipping"
+            exit 0
+          fi
           if [ -f newsletter.md ] && [ -s newsletter.md ]; then
             cat newsletter.md | head -c 3500 > /tmp/msg.txt
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \

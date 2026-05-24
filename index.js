@@ -11,6 +11,8 @@ const SOURCES = [
   { name: "IT Home", url: "https://www.ithome.com/rss" },
   { name: "Leiphone", url: "https://www.leiphone.com/feed" },
   { name: "TMTpost", url: "https://www.tmtpost.com/rss" },
+  { name: "TechNode", url: "https://technode.com/feed" },
+  { name: "Pandaily", url: "https://pandaily.com/feed" },
 ];
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -195,6 +197,30 @@ async function translateArticle(item) {
   }
 }
 
+function coverSvg(date) {
+  const lines = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">`,
+    `  <defs>`,
+    `    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">`,
+    `      <stop offset="0%" style="stop-color:#0f0f1a"/>`,
+    `      <stop offset="100%" style="stop-color:#1a1a2e"/>`,
+    `    </linearGradient>`,
+    `    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">`,
+    `      <stop offset="0%" style="stop-color:#e94560;stop-opacity:0"/>`,
+    `      <stop offset="50%" style="stop-color:#e94560;stop-opacity:1"/>`,
+    `      <stop offset="100%" style="stop-color:#e94560;stop-opacity:0"/>`,
+    `    </linearGradient>`,
+    `  </defs>`,
+    `  <rect width="640" height="320" fill="url(#bg)"/>`,
+    `  <rect x="120" y="210" width="400" height="2" fill="url(#accent)"/>`,
+    `  <text x="320" y="140" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="400" fill="#fff">SinoAI Signals</text>`,
+    `  <text x="320" y="185" text-anchor="middle" font-family="Georgia,serif" font-size="18" fill="#888" font-style="italic">Your daily briefing on China's AI landscape</text>`,
+    `  <text x="320" y="258" text-anchor="middle" font-family="Georgia,serif" font-size="15" fill="#666">${esc(date)}</text>`,
+    `</svg>`,
+  ];
+  return lines.join("\n");
+}
+
 function htmlBody(bodyMarkdown) {
   const lines = bodyMarkdown.trim().split("\n");
   let html = "";
@@ -372,8 +398,7 @@ async function main() {
 </style>
 </head>
 <body>
-<h1>SinoAI Signals</h1>
-<p class="sub">${date} — Your daily briefing on China's AI landscape</p>
+<img alt="SinoAI Signals" src="data:image/svg+xml,${encodeURIComponent(coverSvg(date))}" style="display:block;width:100%;max-width:640px;height:auto;margin:0 auto 32px;border-radius:8px">
 ${htmlBody(body)}
 <p class="footer"><em>Built with DeepSeek</em> · <a href="https://sinoaisignals.substack.com">Subscribe</a></p>
 </body>

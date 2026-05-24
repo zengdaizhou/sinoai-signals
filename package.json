@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "linkedom": "^0.18.0",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "substack-api": "^4.0.0"
   }
 }
