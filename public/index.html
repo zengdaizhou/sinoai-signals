@@ -54,25 +54,30 @@
   .preview-bar button.active { background: #e94560; color: #fff; border-color: #e94560; }
   .preview-bar .label { font-size: 13px; color: #555; margin-right: auto; }
 
-  /* ---- Newsletter preview (Substack-like) ---- */
+  /* ---- Newsletter preview (phone mockup) ---- */
   .newsletter-preview {
-    background: #fff; color: #111; max-width: 640px; margin: 0 auto;
-    padding: 40px 32px; font-family: Georgia, 'Times New Roman', Times, serif;
-    font-size: 20px; line-height: 1.6;
+    display: flex; justify-content: center; padding: 20px 0;
   }
-  .newsletter-preview h1 { font-size: 32px; font-weight: 400; text-align: center; line-height: 1.2; margin: 0 0 4px; color: #111; }
-  .newsletter-preview h2 { font-size: 24px; font-weight: 500; margin: 40px 0 12px; color: #111; border: none; padding: 0; }
-  .newsletter-preview h3 { font-size: 20px; font-weight: 500; margin: 32px 0 8px; color: #111; }
-  .newsletter-preview p { margin: 20px 0; }
-  .newsletter-preview a { color: inherit; text-decoration: underline; text-decoration-color: #d0d0d0; text-underline-offset: 3px; }
-  .newsletter-preview a:hover { text-decoration-color: #111; }
-  .newsletter-preview hr { border: none; border-top: 1px solid #e5e5e5; margin: 40px 0; }
-  .newsletter-preview ul { padding-left: 24px; margin: 8px 0; }
-  .newsletter-preview li { margin: 8px 0; color: #111; }
-  .newsletter-preview strong { color: #111; }
-  .newsletter-preview em { color: #6b6b6b; }
-  .newsletter-preview .sub { text-align: center; color: #6b6b6b; font-size: 16px; margin: -4px 0 32px; font-style: italic; }
-  .newsletter-preview .footer { text-align: center; color: #6b6b6b; font-size: 14px; margin-top: 48px; border-top: 1px solid #e5e5e5; padding-top: 24px; font-style: italic; }
+  .newsletter-preview .phone-frame {
+    width: 390px; max-width: 100%; background: #fff; color: #111;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: 20px; line-height: 1.6;
+    border-radius: 24px; padding: 40px 24px;
+    border: 2px solid #333; box-shadow: 0 8px 40px rgba(0,0,0,.4);
+  }
+  .newsletter-preview .phone-frame h1 { font-size: 32px; font-weight: 400; text-align: center; line-height: 1.2; margin: 0 0 4px; color: #111; }
+  .newsletter-preview .phone-frame h2 { font-size: 24px; font-weight: 500; margin: 40px 0 12px; color: #111; border: none; padding: 0; }
+  .newsletter-preview .phone-frame h3 { font-size: 20px; font-weight: 500; margin: 32px 0 8px; color: #111; }
+  .newsletter-preview .phone-frame p { margin: 20px 0; }
+  .newsletter-preview .phone-frame a { color: inherit; text-decoration: underline; text-decoration-color: #d0d0d0; text-underline-offset: 3px; }
+  .newsletter-preview .phone-frame a:hover { text-decoration-color: #111; }
+  .newsletter-preview .phone-frame hr { border: none; border-top: 1px solid #e5e5e5; margin: 40px 0; }
+  .newsletter-preview .phone-frame ul { padding-left: 24px; margin: 8px 0; }
+  .newsletter-preview .phone-frame li { margin: 8px 0; color: #111; }
+  .newsletter-preview .phone-frame strong { color: #111; }
+  .newsletter-preview .phone-frame em { color: #6b6b6b; }
+  .newsletter-preview .phone-frame .sub { text-align: center; color: #6b6b6b; font-size: 16px; margin: -4px 0 32px; font-style: italic; }
+  .newsletter-preview .phone-frame .footer { text-align: center; color: #6b6b6b; font-size: 14px; margin-top: 48px; border-top: 1px solid #e5e5e5; padding-top: 24px; font-style: italic; }
 
   /* ---- Style editor ---- */
   .style-editor-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 60; justify-content: center; align-items: center; }
@@ -84,8 +89,8 @@
   .style-editor-body { display: flex; flex: 1; min-height: 420px; overflow: hidden; }
   .style-editor-body .left { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #2a2a3e; }
   .style-editor-body .left textarea { flex: 1; background: #0f0f1a; color: #e0e0e0; border: none; padding: 16px; font-family: 'SF Mono', 'Menlo', 'Monaco', monospace; font-size: 13px; resize: none; outline: none; line-height: 1.5; tab-size: 2; }
-  .style-editor-body .right { flex: 1; overflow-y: auto; background: #fff; }
-  .style-editor-body .right .preview-inner { padding: 32px 24px; max-width: 640px; margin: 0 auto; font-family: Georgia, 'Times New Roman', Times, serif; font-size: 20px; line-height: 1.6; color: #111; }
+  .style-editor-body .right { flex: 1; overflow-y: auto; display: flex; justify-content: center; background: #e8e8e8; }
+  .style-editor-body .right .preview-inner { width: 380px; max-width: 100%; background: #fff; padding: 32px 20px; font-family: Georgia, 'Times New Roman', Times, serif; font-size: 20px; line-height: 1.6; color: #111; min-height: 100%; }
   .style-editor-body .right .preview-inner h1 { font-size: 32px; font-weight: 400; text-align: center; line-height: 1.2; margin: 0 0 4px; }
   .style-editor-body .right .preview-inner h2 { font-size: 24px; font-weight: 500; margin: 40px 0 12px; border: none; padding: 0; }
   .style-editor-body .right .preview-inner h3 { font-size: 20px; font-weight: 500; margin: 32px 0 8px; }
@@ -341,9 +346,7 @@ function renderPreview() {
   if (!currentNewsletterContent) return;
   const css = getCustomCss();
   const bodyHtml = mdToHtml(currentNewsletterContent);
-  // We inject CSS only within the container — no iframe needed
-  el.style.cssText = "";
-  el.innerHTML = "<style>" + css + "</style>\n" + bodyHtml;
+  el.innerHTML = '<div class="phone-frame"><style>' + css + '</style>\n' + bodyHtml + '</div>';
 }
 
 // ---- Style editor ----
