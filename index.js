@@ -193,7 +193,7 @@ async function translateArticle(item) {
   }
 }
 
-function parseInlineMarkdown(text) {
+function parseInlineMarkdown(mdText) {
   const tokens = [];
   let remaining = text;
   while (remaining.length > 0) {
