@@ -44,11 +44,26 @@
   .toast.show { opacity: 1; }
   .toast.success { background: #27ae60; }
   .toast.error { background: #e74c3c; }
+
+  /* ---- Login screen ---- */
+  .login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .login-box { background: #1a1a2e; padding: 40px; border-radius: 12px; width: 360px; border: 1px solid #2a2a3e; text-align: center; }
+  .login-box h1 { font-size: 22px; margin-bottom: 4px; color: #fff; }
+  .login-box h1 span { color: #e94560; }
+  .login-box .sub { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .login-box input { width: 100%; padding: 10px 12px; margin-bottom: 12px; background: #0f0f1a; border: 1px solid #2a2a3e; border-radius: 6px; color: #fff; font-size: 14px; outline: none; box-sizing: border-box; }
+  .login-box input:focus { border-color: #e94560; }
+  .login-box .login-btn { width: 100%; padding: 10px; background: #e94560; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .login-box .login-btn:hover { opacity: .85; }
+  .login-box .login-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .login-box .login-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
+
+  /* ---- Modal ---- */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50; justify-content: center; align-items: center; }
   .modal-overlay.show { display: flex; }
   .modal { background: #1a1a2e; padding: 24px; border-radius: 12px; width: 360px; border: 1px solid #2a2a3e; }
   .modal h3 { font-size: 16px; margin-bottom: 16px; color: #fff; }
-  .modal input { width: 100%; padding: 10px 12px; background: #0f0f1a; border: 1px solid #2a2a3e; border-radius: 6px; color: #fff; font-size: 14px; outline: none; }
+  .modal input { width: 100%; padding: 10px 12px; background: #0f0f1a; border: 1px solid #2a2a3e; border-radius: 6px; color: #fff; font-size: 14px; outline: none; box-sizing: border-box; }
   .modal input:focus { border-color: #e94560; }
   .modal .actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
   .modal .actions button { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; }
@@ -65,12 +80,31 @@
 </style>
 </head>
 <body>
+
+<!-- Login screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h1>SinoAI <span>Signals</span></h1>
+    <div class="sub">Sign in to the management dashboard</div>
+    <input type="text" id="loginUser" placeholder="Username" value="admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="password" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <p class="login-error" id="loginError">Invalid username or password</p>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" style="display:none">
 <div class="sidebar">
   <h1>SinoAI <span>Signals</span></h1>
   <div class="subtitle">Dashboard</div>
   <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
   <button class="generate-btn" id="generateBtn" onclick="promptPassword()">+ Generate Now</button>
   <nav><ul class="nav-list" id="navList"></ul></nav>
+  <div style="position:absolute;bottom:16px;left:20px;right:20px;border-top:1px solid #2a2a3e;padding-top:12px;text-align:center;">
+    <span style="font-size:12px;color:#555;display:block;margin-bottom:4px;" id="userLabel">admin</span>
+    <a href="#" onclick="logout()" style="font-size:12px;color:#e94560;text-decoration:none;">Logout</a>
+  </div>
 </div>
 <div class="main" id="main">
   <div class="loading" id="loading"><div class="spinner"></div><p>Loading newsletter...</p></div>
@@ -83,6 +117,7 @@
     <p>No newsletters yet</p>
     <p class="sub">Click "Generate Now" to create the first issue</p>
   </div>
+</div>
 </div>
 <div class="toast" id="toast"></div>
 <div class="modal-overlay" id="modal">
@@ -99,6 +134,51 @@
 <script>
 const API = "";
 let adminKey = localStorage.getItem("sinoai_admin_key") || "";
+
+// ---- Auth ----
+function showDashboard() {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("dashboard").style.display = "block";
+  loadList();
+}
+function showLogin() {
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("dashboard").style.display = "none";
+}
+
+async function doLogin() {
+  const username = document.getElementById("loginUser").value.trim() || "admin";
+  const password = document.getElementById("loginPass").value;
+  const btn = document.getElementById("loginBtn");
+  const errEl = document.getElementById("loginError");
+  errEl.style.display = "none";
+  btn.disabled = true; btn.textContent = "Signing in...";
+  try {
+    const res = await fetch(API + "/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) { errEl.style.display = "block"; return; }
+    localStorage.setItem("sinoai_logged_in", "1");
+    adminKey = password;
+    localStorage.setItem("sinoai_admin_key", password);
+    showDashboard();
+  } catch (e) { errEl.textContent = "Network error"; errEl.style.display = "block"; }
+  finally { btn.disabled = false; btn.textContent = "Sign In"; }
+}
+
+function logout() {
+  localStorage.removeItem("sinoai_logged_in");
+  showLogin();
+}
+
+// ---- Auto-login check ----
+if (localStorage.getItem("sinoai_logged_in")) {
+  showDashboard();
+} else {
+  showLogin();
+}
 
 function showToast(msg, type) {
   const t = document.getElementById("toast");
@@ -149,7 +229,7 @@ function mdToHtml(text) {
       html += "  <li>" + inl(t.slice(2)) + "</li>\n"; continue;
     }
     if (inList) { html += "</ul>\n"; inList = false; }
-    if (t.startsWith("|")) continue; // skip tables
+    if (t.startsWith("|")) continue;
     html += "<p>" + inl(t) + "</p>\n";
   }
   if (inList) html += "</ul>\n";
@@ -168,11 +248,9 @@ async function loadNewsletter(date) {
     if (!res.ok) throw new Error("Not found");
     const data = await res.json();
     if (!data || !data.content) throw new Error("Empty");
-    // Update active nav
     document.querySelectorAll(".nav-list a").forEach(a => a.classList.remove("active"));
     const navLink = document.querySelector(`.nav-list a[data-date="${data.date}"]`);
     if (navLink) navLink.classList.add("active");
-    // Render
     document.getElementById("newsletterTitle").textContent = "SinoAI Signals";
     document.getElementById("newsletterDate").textContent = data.date;
     document.getElementById("newsletterContent").innerHTML = mdToHtml(data.content);
@@ -211,8 +289,6 @@ async function loadList() {
     }
     statusDot.className = "dot idle";
     statusText.textContent = data.newsletters.length + " issues";
-
-    // Auto-load latest
     const firstNav = nav.querySelector("a");
     if (firstNav) loadNewsletter(data.newsletters[0].date);
   } catch (e) {
@@ -221,8 +297,6 @@ async function loadList() {
     document.getElementById("loading").style.display = "none";
   }
 }
-
-loadList();
 </script>
 </body>
 </html>
