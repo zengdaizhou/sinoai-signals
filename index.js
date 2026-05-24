@@ -277,17 +277,19 @@ async function main() {
           "Write from an OUTSIDE-China perspective. Never use 'domestic'.\n" +
           "STRICT RULES:\n" +
           "- NO source names, NO company names as sources, NO 'Source:', 'via', 'according to'.\n" +
-          "- NO 'Read more', 'Read original', 'Link', URLs, markdown links, square brackets.\n" +
+          "- NO 'Read more', 'Read original', 'Link', URLs, markdown links.\n" +
           "- NO parenthetical citations, NO attribution of any kind.\n" +
+          "- NO square brackets [ ] anywhere in your output.\n" +
           "- This is a curated summary, not a link aggregator. Just write the news cleanly.\n" +
-          "- Output ONLY the newsletter body. Do NOT change the newsletter name.\n" +
+          "- DO NOT include the newsletter name 'SinoAI Signals' — it is added separately.\n" +
+          "- Start your response directly with --- (the section divider).\n" +
           "Use EXACTLY this format:\n\n" +
           "---\n\n" +
           "## The Big Story\n\n" +
           "(Pick the most important article. 2-3 paragraphs of analysis. Explain the significance.)\n\n" +
           "---\n\n" +
           "## Signals\n\n" +
-          "### [Article Title]\n" +
+          "### Article Title\n" +
           "**What happened:** (1-2 sentences)\n" +
           "**Why it matters:** (1-2 sentences)\n\n" +
           "(Repeat for 3-5 items)\n\n" +
