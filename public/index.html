@@ -440,11 +440,11 @@ function mdToHtml(text) {
     if (t.startsWith("### ")) { html += "<h3>" + esc(t.slice(4)) + "</h3>\n"; continue; }
     if (t.startsWith("- ") || t.startsWith("* ")) {
       if (!inList) { html += "<ul>\n"; inList = true; }
-      html += "  <li>" + inl(t.slice(2)) + "</li>\n"; continue;
+      html += "  <li>" + inl(cleanReadMore(t.slice(2))) + "</li>\n"; continue;
     }
     if (inList) { html += "</ul>\n"; inList = false; }
     if (t.startsWith("|")) continue;
-    html += "<p>" + inl(t) + "</p>\n";
+    html += "<p>" + inl(cleanReadMore(t)) + "</p>\n";
   }
   if (inList) html += "</ul>\n";
   return html;
@@ -452,11 +452,14 @@ function mdToHtml(text) {
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\(.+?\)/g,"$1"); }
 
+// ---- Helper: strip meaningless "Read more" / links ----
+function cleanReadMore(s) { return s.replace(/\.?\s*[Rr]ead\s+(more|original|article).*/gi, "").trim(); }
+
 // ---- Copy for publish ----
 function copyMarkdown() {
   if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  // Strip markdown links: [text](url) -> text
-  const clean = currentNewsletterContent.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  let clean = currentNewsletterContent.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  clean = cleanReadMore(clean);
   navigator.clipboard.writeText(clean).then(() => {
     showToast("Markdown copied to clipboard!", "success");
   }).catch(() => showToast("Failed to copy", "error"));

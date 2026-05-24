@@ -208,17 +208,18 @@ function htmlBody(bodyMarkdown) {
     if (t.startsWith("### ")) { html += "<h3>" + esc(t.slice(4)) + "</h3>\n"; continue; }
     if (t.startsWith("- ") || t.startsWith("* ")) {
       if (!inList) { html += "<ul>\n"; inList = true; }
-      html += "  <li>" + inl(t.slice(2)) + "</li>\n";
+      html += "  <li>" + inl(cleanReadMore(t.slice(2))) + "</li>\n";
       continue;
     }
     if (inList) { html += "</ul>\n"; inList = false; }
-    html += "<p>" + inl(t) + "</p>\n";
+    html += "<p>" + inl(cleanReadMore(t)) + "</p>\n";
   }
   if (inList) html += "</ul>\n";
   return html;
 }
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\(.+?\)/g,"$1"); }
+function cleanReadMore(s) { return s.replace(/\.?\s*[Rr]ead\s+(more|original|article).*/gi, "").trim(); }
 
 async function main() {
   console.error("[1/4] Fetching RSS feeds...");
@@ -274,7 +275,9 @@ async function main() {
           "You write a daily newsletter called 'SinoAI Signals' about Chinese AI/tech for global readers.\n" +
           "Write from an OUTSIDE-China perspective. Never use 'domestic'.\n" +
           "Output ONLY the newsletter body, nothing else. Do NOT change the newsletter name.\n" +
-          "CRITICAL: Do NOT use any markdown links or URLs. No [text](url) patterns at all. The newsletter must be fully self-contained.\n" +
+          "CRITICAL: Do NOT use any markdown links or URLs. No [text](url) patterns at all. " +
+          "Do NOT write 'Read more' or 'Read original' anywhere. The newsletter must be fully self-contained. " +
+          "If needed, mention the source as plain text like '(Source: Quantum Bit)'. No clickable links.\n"
           "If needed, mention the source as plain text like '(Source: Quantum Bit)'. No clickable links.\n" +
           "Use EXACTLY this format with these section headers:\n\n" +
           "---\n\n" +
