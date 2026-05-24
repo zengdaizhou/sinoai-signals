@@ -217,8 +217,10 @@ function htmlBody(bodyMarkdown) {
   if (inList) html += "</ul>\n";
   return html;
 }
+const CN_DOMAINS = ["qbitai.com","36kr.com","ifanr.com","ithome.com","leiphone.com","tmtpost.com"];
+function isCnLink(url) { try { return CN_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch(e) { return false; } }
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2">$1</a>'); }
+function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,(m,t,u) => isCnLink(u) ? t : '<a href="'+esc(u)+'">'+t+'</a>'); }
 
 async function main() {
   console.error("[1/4] Fetching RSS feeds...");
@@ -274,6 +276,7 @@ async function main() {
           "You write a daily newsletter called 'SinoAI Signals' about Chinese AI/tech for global readers.\n" +
           "Write from an OUTSIDE-China perspective. Never use 'domestic'.\n" +
           "Output ONLY the newsletter body, nothing else. Do NOT change the newsletter name.\n" +
+          "IMPORTANT: Do NOT include clickable links/URLs. The newsletter should be self-contained. Mention source names as text instead (e.g. '(Source: Quantum Bit)' or 'according to a 36Kr report'). No markdown links, no bare URLs.\n" +
           "Use EXACTLY this format with these section headers:\n\n" +
           "---\n\n" +
           "## The Big Story\n\n" +
@@ -283,14 +286,14 @@ async function main() {
           "### [Article Title]\n" +
           "**What happened:** (1-2 sentences)\n" +
           "**Why it matters:** (1-2 sentences, global reader context)\n" +
-          "[Read more](link)\n\n" +
+          "(Source: [name])\n\n" +
           "(Repeat for 3-5 items)\n\n" +
           "---\n\n" +
           "## By the Numbers\n\n" +
           "**Key stat:** explanation\n\n" +
           "---\n\n" +
           "## Worth a Read\n\n" +
-          "**Article Title** — 2 sentence recommendation. [Link](url)\n\n" +
+          "**Article Title** — 2 sentence recommendation.\n\n" +
           "---"
       },
       {
@@ -303,9 +306,9 @@ async function main() {
   } catch (e) {
     console.error("[FALLBACK] " + (e.message || "").slice(0, 50));
     body = "## The Big Story\n\n**" + translated[0].engTitle + "**\n\n" +
-      translated[0].englishSummary + "\n\n[Read original →](" + translated[0].link + ")\n\n---\n\n## Signals\n\n";
+      translated[0].englishSummary + "\n\n---\n\n## Signals\n\n";
     for (let i = 1; i < translated.length; i++) {
-      body += "**" + translated[i].engTitle + "**\n" + translated[i].englishSummary + "\n[Read more](" + translated[i].link + ")\n\n";
+      body += "**" + translated[i].engTitle + "**\n" + translated[i].englishSummary + "\n\n";
     }
   }
 
@@ -326,19 +329,22 @@ async function main() {
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>SinoAI Signals — ${date}</title>
 <style>
-  body{font-family:Georgia,serif;max-width:680px;margin:0 auto;padding:20px;color:#1a1a1a;line-height:1.6;font-size:18px}
-  h1{font-size:28px;text-align:center;margin-bottom:4px}
-  h2{font-size:22px;margin-top:32px;color:#c0392b;border-bottom:2px solid #eee;padding-bottom:6px}
-  h3{font-size:18px;margin-top:24px}
-  a{color:#2980b9}
-  hr{border:none;border-top:1px solid #ddd;margin:32px 0}
-  p{margin:14px 0} ul{padding-left:24px} li{margin:6px 0}
-  .sub{text-align:center;color:#888;font-size:15px;margin-top:-8px}
-  .footer{text-align:center;color:#888;font-size:14px;margin-top:40px;border-top:1px solid #eee;padding-top:20px}
+  body{font-family:Georgia,'Times New Roman',Times,serif;max-width:640px;margin:0 auto;padding:20px 20px 40px;color:#111;line-height:1.6;font-size:20px;background:#fff}
+  h1{font-size:32px;font-weight:400;text-align:center;line-height:1.2;margin:0 0 4px}
+  h2{font-size:24px;font-weight:500;line-height:1.3;margin:40px 0 12px;color:#111;border:none;padding:0}
+  h3{font-size:20px;font-weight:500;margin:32px 0 8px;color:#111}
+  a{color:inherit;text-decoration:underline;text-decoration-color:#d0d0d0;text-underline-offset:3px}
+  a:hover{text-decoration-color:#111}
+  hr{border:none;border-top:1px solid #e5e5e5;margin:40px 0}
+  p{margin:20px 0}
+  ul{padding-left:24px} li{margin:8px 0}
+  .sub{text-align:center;color:#6b6b6b;font-size:16px;margin:-4px 0 32px;font-style:italic}
+  .footer{text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic}
   @media(prefers-color-scheme:dark){
     body{background:#1a1a2e;color:#e0e0e0}
-    h2{color:#e94560;border-bottom-color:#333}
-    a{color:#4cc9f0} hr{border-top-color:#333} .footer,.sub{color:#888}
+    h1,h2,h3{color:#f0f0f0}
+    a{text-decoration-color:#555}a:hover{text-decoration-color:#aaa}
+    hr,.footer{border-color:#333}.sub{color:#999}
   }
 </style>
 </head>
