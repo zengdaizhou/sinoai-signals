@@ -332,7 +332,7 @@ async function main() {
     // Strip "Read more" and trailing text — ONE LINE ONLY, don't eat across paragraphs
     .replace(/[Rr]ead\s+(more|original|article)\b[^.\n]*\.?\s*/gi, "")
     .replace(/according\s+to\s+[^.\n]+\.?\s*/gi, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/ {2,}/g, " ")
     .trim();
 
   const output =
