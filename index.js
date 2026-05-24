@@ -1,4 +1,5 @@
 import RssParser from "rss-parser";
+import { SubstackClient, PostBuilder, bold, italic, link, text } from "substack-skill";
 
 const parser = new RssParser({
   customFields: { item: [["content:encoded", "contentEncoded"]] },
@@ -192,6 +193,95 @@ async function translateArticle(item) {
   }
 }
 
+function parseInlineMarkdown(text) {
+  const tokens = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/^\*\*(.+?)\*\*/);
+    if (boldMatch) { tokens.push(bold(boldMatch[1])); remaining = remaining.slice(boldMatch[0].length); continue; }
+    const italicMatch = remaining.match(/^\*(.+?)\*/);
+    if (italicMatch) { tokens.push(italic(italicMatch[1])); remaining = remaining.slice(italicMatch[0].length); continue; }
+    const linkMatch = remaining.match(/^\[(.+?)\]\((.+?)\)/);
+    if (linkMatch) { tokens.push(link(linkMatch[1], linkMatch[2])); remaining = remaining.slice(linkMatch[0].length); continue; }
+    const nextSpecial = remaining.search(/[*\[]/);
+    if (nextSpecial > 0) { tokens.push(text(remaining.slice(0, nextSpecial))); remaining = remaining.slice(nextSpecial); }
+    else if (nextSpecial === -1) { tokens.push(text(remaining)); remaining = ""; }
+    else { tokens.push(text(remaining[0])); remaining = remaining.slice(1); }
+  }
+  return tokens;
+}
+
+function markdownToTipTap(md) {
+  const builder = new PostBuilder();
+  const lines = md.trim().split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    if (t === "---") { builder.divider(); continue; }
+    if (t.startsWith("# ") && !t.startsWith("## ")) { builder.heading(t.slice(2), 1); continue; }
+    if (t.startsWith("## ") && !t.startsWith("### ")) { builder.heading(t.slice(3), 2); continue; }
+    if (t.startsWith("### ")) {
+      const h = t.slice(4);
+      const m = h.match(/^\[(.+?)\]\(.+?\)/);
+      builder.heading(m ? m[1] : h, 3);
+      continue;
+    }
+    if (t.startsWith("- ") || t.startsWith("* ")) {
+      const items = [];
+      while (i < lines.length && (lines[i].trim().startsWith("- ") || lines[i].trim().startsWith("* "))) {
+        items.push(lines[i].trim().slice(2));
+        i++;
+      }
+      i--;
+      builder.bulletList(items);
+      continue;
+    }
+    // Numbered list
+    if (t.match(/^\d+\.\s/)) {
+      const items = [];
+      while (i < lines.length && lines[i].trim().match(/^\d+\.\s/)) {
+        items.push(lines[i].trim().replace(/^\d+\.\s/, ""));
+        i++;
+      }
+      i--;
+      builder.orderedList(items);
+      continue;
+    }
+    builder.richParagraph(...parseInlineMarkdown(t));
+  }
+  return builder.build();
+}
+
+async function publishToSubstack(bodyMarkdown, newsletterDate) {
+  const sessionId = process.env.SUBSTACK_SESSION_ID;
+  if (!sessionId) {
+    console.error("[SKIP] Substack auto-publish: no SUBSTACK_SESSION_ID set");
+    return;
+  }
+  try {
+    const pubUrl = "https://sinoaisignals.substack.com";
+    const client = new SubstackClient({ baseUrl: pubUrl });
+    await client.authenticate({ sessionId });
+    const title = "SinoAI Signals — " + newsletterDate;
+    const tipTapBody = markdownToTipTap(bodyMarkdown);
+    const draft = await client.createDraft({
+      title,
+      body: tipTapBody,
+      audience: "everyone",
+    });
+    console.error("[OK] Substack draft created: " + draft.id);
+    if (process.env.SUBSTACK_PUBLISH === "true") {
+      await new Promise(r => setTimeout(r, 2000));
+      const post = await client.publishDraft(draft.id);
+      console.error("[OK] Substack published: " + post.canonical_url);
+    } else {
+      console.error("[INFO] Draft saved (not published). Set SUBSTACK_PUBLISH=true to auto-publish.");
+    }
+  } catch (e) {
+    console.error("[ERR] Substack publish: " + (e.message || "").slice(0, 120));
+  }
+}
+
 async function main() {
   console.error("[1/4] Fetching RSS feeds...");
   let items = await fetchFeeds();
@@ -285,6 +375,9 @@ async function main() {
     "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*\n";
 
   console.log(output);
+
+  // Auto-publish to Substack if credentials are configured
+  await publishToSubstack(body, date);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
