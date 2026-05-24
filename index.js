@@ -10,6 +10,7 @@ const SOURCES = [
   { name: "iFanr", url: "https://www.ifanr.com/feed" },
   { name: "IT Home", url: "https://www.ithome.com/rss" },
   { name: "Leiphone", url: "https://www.leiphone.com/feed" },
+  { name: "TMTpost", url: "https://www.tmtpost.com/rss" },
 ];
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -89,7 +90,9 @@ function filterRelevant(items) {
     "算力","model","Model","training","inference","data center","storage","SSD",
     "agent","Agent","autonomous","embodied","space intelligence"];
   const SKIP = ["SUV","手机","耳机","手表","宝马","奔驰","游戏","电视剧",
-    "电影","综艺","球鞋","618","双11"];
+    "电影","综艺","球鞋","618","双11","评测","开箱","外观","配色","续航测试",
+    "相机","拍照","摄影","镜头","腕表","跑车","赛车","F1","NBA","欧冠",
+    "英超","西甲","中超","二手车","试驾","探店","装修","家居","穿搭",];
   return items.filter(item => {
     const t = item.title;
     if (SKIP.some(k => t.includes(k))) return false;
@@ -192,6 +195,31 @@ async function translateArticle(item) {
   }
 }
 
+function htmlBody(bodyMarkdown) {
+  const lines = bodyMarkdown.trim().split("\n");
+  let html = "";
+  let inList = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { if (inList) { html += "</ul>\n"; inList = false; } continue; }
+    if (t === "---") { if (inList) { html += "</ul>\n"; inList = false; } html += "<hr>\n"; continue; }
+    if (t.startsWith("# ") && !t.startsWith("## ")) { html += "<h1>" + esc(t.slice(2)) + "</h1>\n"; continue; }
+    if (t.startsWith("## ") && !t.startsWith("### ")) { html += "<h2>" + esc(t.slice(3)) + "</h2>\n"; continue; }
+    if (t.startsWith("### ")) { html += "<h3>" + esc(t.slice(4)) + "</h3>\n"; continue; }
+    if (t.startsWith("- ") || t.startsWith("* ")) {
+      if (!inList) { html += "<ul>\n"; inList = true; }
+      html += "  <li>" + inl(t.slice(2)) + "</li>\n";
+      continue;
+    }
+    if (inList) { html += "</ul>\n"; inList = false; }
+    html += "<p>" + inl(t) + "</p>\n";
+  }
+  if (inList) html += "</ul>\n";
+  return html;
+}
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function inl(s) { return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\*(.+?)\*/g,"<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2">$1</a>'); }
+
 async function main() {
   console.error("[1/4] Fetching RSS feeds...");
   let items = await fetchFeeds();
@@ -208,11 +236,14 @@ async function main() {
 
   console.error("\n[3/4] Translating " + items.length + " articles...");
   const translated = [];
-  for (let i = 0; i < items.length; i++) {
-    console.error("  [" + (i+1) + "/" + items.length + "] " + items[i].title.slice(0, 60));
-    const r = await translateArticle(items[i]);
-    if (r) translated.push(r);
-    await new Promise(r => setTimeout(r, 800));
+  const concurrency = 4;
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    console.error("  batch " + (Math.floor(i/concurrency)+1) + ": " + batch.map(a => a.title.slice(0,30)).join(" | "));
+    const results = await Promise.allSettled(batch.map(a => translateArticle(a)));
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) translated.push(r.value);
+    }
   }
 
   if (translated.length === 0) {
@@ -285,6 +316,74 @@ async function main() {
     "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*\n";
 
   console.log(output);
+
+  // Generate HTML version
+  try {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SinoAI Signals — ${date}</title>
+<style>
+  body{font-family:Georgia,serif;max-width:680px;margin:0 auto;padding:20px;color:#1a1a1a;line-height:1.6;font-size:18px}
+  h1{font-size:28px;text-align:center;margin-bottom:4px}
+  h2{font-size:22px;margin-top:32px;color:#c0392b;border-bottom:2px solid #eee;padding-bottom:6px}
+  h3{font-size:18px;margin-top:24px}
+  a{color:#2980b9}
+  hr{border:none;border-top:1px solid #ddd;margin:32px 0}
+  p{margin:14px 0} ul{padding-left:24px} li{margin:6px 0}
+  .sub{text-align:center;color:#888;font-size:15px;margin-top:-8px}
+  .footer{text-align:center;color:#888;font-size:14px;margin-top:40px;border-top:1px solid #eee;padding-top:20px}
+  @media(prefers-color-scheme:dark){
+    body{background:#1a1a2e;color:#e0e0e0}
+    h2{color:#e94560;border-bottom-color:#333}
+    a{color:#4cc9f0} hr{border-top-color:#333} .footer,.sub{color:#888}
+  }
+</style>
+</head>
+<body>
+<h1>SinoAI Signals</h1>
+<p class="sub">${date} — Your daily briefing on China's AI landscape</p>
+${htmlBody(body)}
+<p class="footer"><em>Built with DeepSeek</em> · <a href="https://sinoaisignals.substack.com">Subscribe</a></p>
+</body>
+</html>`;
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync("newsletter.html", html);
+    console.error("[OK] HTML file saved: newsletter.html");
+  } catch (e) {
+    console.error("[SKIP] HTML generation: " + (e.message || "").slice(0, 50));
+  }
+
+  // Generate RSS feed
+  try {
+    const now = new Date();
+    const rssDate = now.toUTCString();
+    const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>SinoAI Signals</title>
+  <link>https://sinoaisignals.substack.com</link>
+  <description>Your daily briefing on China's AI landscape</description>
+  <language>en</language>
+  <lastBuildDate>${rssDate}</lastBuildDate>
+  <atom:link href="https://sinoaisignals.substack.com/rss" rel="self" type="application/rss+xml"/>
+  <item>
+    <title>SinoAI Signals — ${date}</title>
+    <link>https://sinoaisignals.substack.com</link>
+    <description><![CDATA[${body.replace(/^##/gm, "##").slice(0, 2000)}]]></description>
+    <pubDate>${rssDate}</pubDate>
+    <guid isPermaLink="false">sinoai-${now.toISOString().slice(0, 10)}</guid>
+  </item>
+</channel>
+</rss>`;
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync("rss.xml", rss);
+    console.error("[OK] RSS feed saved: rss.xml");
+  } catch (e) {
+    console.error("[SKIP] RSS generation: " + (e.message || "").slice(0, 50));
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

@@ -45,6 +45,8 @@ jobs:
           name: newsletter-output
           path: |
             newsletter.md
+            newsletter.html
+            rss.xml
             run.log
 
       - name: Send to Telegram
