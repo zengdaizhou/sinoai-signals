@@ -1,12 +1,12 @@
 [1/4] Fetching RSS feeds...
-[OK] Quantum Bit: 10 items
+[ERR] Quantum Bit: Client network socket disconnected before secure TLS connection was established
 [OK] 36Kr: 30 items
 [OK] iFanr: 20 items
 [OK] IT Home: 60 items
 [OK] Leiphone: 20 items
 
 [2/4] Filtering...
-  16 relevant articles (removed 68)
+  14 relevant articles (removed 65)
 
 [3/4] Translating 8 articles...
   [1/8] 圆桌对话：下一个杀手级AI产品，会出现在哪个赛道？| 2026AI Partner·北京亦庄AI+产业大会
