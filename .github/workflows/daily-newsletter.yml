@@ -6,6 +6,9 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -48,6 +51,18 @@ jobs:
             newsletter.html
             rss.xml
             run.log
+
+      - name: Archive to Repository
+        if: steps.newsletter.outputs.exit_code == 0
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          mkdir -p archive
+          cp newsletter.md "archive/$DATE.md"
+          if [ -f newsletter.html ]; then cp newsletter.html "archive/$DATE.html"; fi
+          git config user.name "SinoAI Bot"
+          git config user.email "bot@sinoaisignals.com"
+          git add "archive/$DATE.md" "archive/$DATE.html" 2>/dev/null || git add "archive/$DATE.md"
+          git diff --staged --quiet || (git commit -m "Archive newsletter $DATE" && git push)
 
       - name: Send to Telegram
         if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''

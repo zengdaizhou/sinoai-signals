@@ -1,8 +1,12 @@
 {
   "version": 2,
-  "functions": {
-    "api/newsletter.js": {
-      "maxDuration": 300
-    }
-  }
+  "builds": [
+    { "src": "public/**", "use": "@vercel/static" },
+    { "src": "api/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/$1.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "public/$1" }
+  ]
 }
