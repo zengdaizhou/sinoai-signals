@@ -80,13 +80,20 @@ async function main() {
   console.error("Logging in...");
   const session = await getSession();
 
+  const headers = {
+    "Content-Type": "application/json",
+    Cookie: "connect.sid=" + session,
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    Accept: "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    Origin: "https://sinoaisignals.substack.com",
+    Referer: "https://sinoaisignals.substack.com/publish",
+  };
+
   console.error("Creating draft...");
   const draftRes = await fetch("https://substack.com/api/v1/drafts", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: "connect.sid=" + session,
-    },
+    headers,
     body: JSON.stringify({
       title: titleLine + " — " + dateLine,
       body: { type: "doc", content: [{ type: "paragraph", content: [] }] },
@@ -108,10 +115,7 @@ async function main() {
   console.error("Publishing draft...");
   const pubRes = await fetch(`https://substack.com/api/v1/drafts/${draftId}/publish`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: "connect.sid=" + session,
-    },
+    headers,
     body: JSON.stringify({
       audience: "everyone",
       publish_now: true,
