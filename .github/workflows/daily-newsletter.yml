@@ -70,12 +70,22 @@ jobs:
         if: steps.newsletter.outputs.exit_code == 0
         run: |
           echo "Installing Chromium..."
-          sudo apt-get update -qq && sudo apt-get install -y -qq chromium-browser \
-            ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
+          sudo apt-get update -qq || true
+          sudo apt-get install -y -qq chromium-browser 2>/dev/null || \
+            sudo apt-get install -y -qq chromium 2>/dev/null || true
+          # Install Chrome/Chromium system deps (names differ by Ubuntu version)
+          sudo apt-get install -y -qq \
+            ca-certificates fonts-liberation libasound2t64 libasound2 libatk-bridge2.0-0 \
             libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
             libnspr4 libnss3 libu2f-udev libvulkan1 libxcomposite1 \
-            libxdamage1 libxkbcommon0 libxrandr2 xdg-utils
-          echo "PUPPETEER_EXEC_PATH=$(which chromium-browser || echo /usr/bin/chromium-browser)" >> $GITHUB_ENV
+            libxdamage1 libxkbcommon0 libxrandr2 xdg-utils 2>/dev/null || true
+          CHROME=$(which chromium-browser || which chromium || which google-chrome || which google-chrome-stable || echo "")
+          if [ -n "$CHROME" ]; then
+            echo "PUPPETEER_EXEC_PATH=$CHROME" >> $GITHUB_ENV
+            echo "Found browser: $CHROME"
+          else
+            echo "No browser found, Puppeteer will try auto-detect"
+          fi
 
       - name: Publish to Substack
         id: publish
