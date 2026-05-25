@@ -445,7 +445,11 @@ function cleanupForCopy(text) {
 }
 function copyMarkdown() {
   if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  const md = optimizeMarkdown(currentNewsletterContent);
+  let md = optimizeMarkdown(currentNewsletterContent);
+  // Restore footer links that cleanup strips
+  md = md
+    .replace(/\*Built with DeepSeek \| Subscribe\*/g, "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*")
+    .replace(/\*Also by us: Employer Pressure Gauge/g, "*Also by us: [Employer Pressure Gauge](https://employerpressuregauge.com)");
   navigator.clipboard.writeText(md).then(() => {
     showToast("Markdown copied — paste into Substack works", "success");
   }).catch(() => showToast("Failed to copy", "error"));
@@ -466,7 +470,7 @@ function optimizeMarkdown(text) {
 
     // Add emoji + separator to h3 in Signals section
     if (inSignals && t.startsWith("### ")) {
-      if (signalCount > 0) out.push("", "---", "");
+      if (signalCount > 0) out.push("---");
       out.push("### " + emojiForTitle(t.slice(4)) + t.slice(4));
       signalCount++;
       continue;
