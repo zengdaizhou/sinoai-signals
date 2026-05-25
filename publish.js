@@ -1,11 +1,30 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 const SID = process.env.SUBSTACK_SID;
+const EMAIL = process.env.SUBSTACK_EMAIL;
+const PASSWORD = process.env.SUBSTACK_PASSWORD;
 const PUBLICATION = process.env.SUBSTACK_URL || "https://sinoaisignals.substack.com";
 
-if (!SID) {
-  console.error("Missing SUBSTACK_SID env var");
-  process.exit(1);
+async function getSession() {
+  if (SID) return SID;
+  if (EMAIL && PASSWORD) {
+    console.error("Logging in with email/password...");
+    const res = await fetch("https://substack.com/api/v1/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: EMAIL, password: PASSWORD, redirect: "" }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Login failed: " + err.slice(0, 200));
+    }
+    // Extract connect.sid from set-cookie header
+    const cookies = res.headers.getSetCookie?.() || [];
+    const sidCookie = cookies.find(c => c.startsWith("connect.sid"));
+    if (!sidCookie) throw new Error("No connect.sid cookie received after login");
+    return sidCookie.split(";")[0].replace("connect.sid=", "");
+  }
+  throw new Error("Set SUBSTACK_SID (cookie) or SUBSTACK_EMAIL + SUBSTACK_PASSWORD");
 }
 
 function mdToHtml(text) {
@@ -58,12 +77,15 @@ async function main() {
     + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek · <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>'
     + '</div>';
 
+  console.error("Logging in...");
+  const session = await getSession();
+
   console.error("Creating draft...");
   const draftRes = await fetch("https://substack.com/api/v1/drafts", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Cookie: "connect.sid=" + SID,
+      Cookie: "connect.sid=" + session,
     },
     body: JSON.stringify({
       title: titleLine + " — " + dateLine,
@@ -88,7 +110,7 @@ async function main() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Cookie: "connect.sid=" + SID,
+      Cookie: "connect.sid=" + session,
     },
     body: JSON.stringify({
       audience: "everyone",

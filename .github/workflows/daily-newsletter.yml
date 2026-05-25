@@ -68,10 +68,12 @@ jobs:
         if: steps.newsletter.outputs.exit_code == 0
         env:
           SUBSTACK_SID: ${{ secrets.SUBSTACK_SID }}
+          SUBSTACK_EMAIL: ${{ secrets.SUBSTACK_EMAIL }}
+          SUBSTACK_PASSWORD: ${{ secrets.SUBSTACK_PASSWORD }}
           SUBSTACK_URL: ${{ secrets.SUBSTACK_URL }}
         run: |
-          if [ -z "$SUBSTACK_SID" ]; then
-            echo "SUBSTACK_SID not set, skipping publish"
+          if [ -z "$SUBSTACK_SID" ] && [ -z "$SUBSTACK_EMAIL" ]; then
+            echo "Substack not configured, skipping publish"
             exit 0
           fi
           node publish.js 2>&1
