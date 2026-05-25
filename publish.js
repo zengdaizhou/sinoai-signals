@@ -34,12 +34,15 @@ async function main() {
   const browser = await puppeteer.launch({
     executablePath,
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
 
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
+
+    // Must be on the domain before setting cookies
+    await page.goto(PUBLICATION, { waitUntil: "networkidle2" });
 
     // Login or set cookie
     if (SID) {
@@ -66,10 +69,19 @@ async function main() {
 
     // Navigate to publish page
     await page.goto(PUBLICATION + "/publish", { waitUntil: "networkidle2" });
-    console.error("On publish page.");
+    console.error("On publish page:", page.url());
 
     // Wait for editor to load
-    await page.waitForSelector('[contenteditable]', { timeout: 15000 });
+    try {
+      await page.waitForSelector('[contenteditable]', { timeout: 10000 });
+    } catch {
+      // Debug: dump page state
+      console.error("Editor not found. URL:", page.url());
+      console.error("Page title:", await page.title());
+      const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || "no body");
+      console.error("Body text:", bodyText);
+      throw new Error("Editor not found — cookie may be expired");
+    }
 
     // Set title
     const titleEl = await page.$('input[placeholder*="Title"], [contenteditable][placeholder*="Title"]');
