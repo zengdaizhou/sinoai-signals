@@ -1,5 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+puppeteer.use(StealthPlugin());
 
 const EMAIL = process.env.SUBSTACK_EMAIL;
 const PASSWORD = process.env.SUBSTACK_PASSWORD;
@@ -34,15 +36,25 @@ async function main() {
   const browser = await puppeteer.launch({
     executablePath,
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-blink-features=AutomationControlled",
+    ],
   });
 
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
 
+    // Realistic user-agent to avoid Cloudflare detection
+    await page.setUserAgent(
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    );
+
     // Must be on the domain before setting cookies
-    await page.goto(PUBLICATION, { waitUntil: "networkidle2" });
+    await page.goto(PUBLICATION, { waitUntil: "networkidle0", timeout: 30000 });
 
     // Login or set cookie
     if (SID) {
@@ -68,12 +80,12 @@ async function main() {
     }
 
     // Navigate to publish page
-    await page.goto(PUBLICATION + "/publish", { waitUntil: "networkidle2" });
+    await page.goto(PUBLICATION + "/publish", { waitUntil: "networkidle0", timeout: 30000 });
     console.error("On publish page:", page.url());
 
-    // Wait for editor to load
+    // Wait for editor to load (Cloudflare challenge may add delay)
     try {
-      await page.waitForSelector('[contenteditable]', { timeout: 10000 });
+      await page.waitForSelector('[contenteditable]', { timeout: 20000 });
     } catch {
       // Debug: dump page state
       console.error("Editor not found. URL:", page.url());

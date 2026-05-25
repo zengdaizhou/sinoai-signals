@@ -9,6 +9,8 @@
   "dependencies": {
     "linkedom": "^0.18.0",
     "puppeteer-core": "^25.0.4",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rss-parser": "^3.13.0",
     "substack-api": "^4.0.0"
   }
