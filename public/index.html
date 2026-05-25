@@ -437,7 +437,8 @@ function cleanTrailing(s) { return s.replace(/\s*\[\.?\]?\s*$/g, "").trim(); }
 
 // ---- Copy for publish ----
 function cleanupForCopy(text) {
-  let clean = text.replace(/https?:\/\/[^\s)]+/g, "");
+  // Strip bare URLs but NOT those inside markdown links [text](url)
+  let clean = text.replace(/(?<!\]\()https?:\/\/[^\s)]+/g, "");
   clean = cleanReadMore(clean);
   clean = cleanTrailing(clean);
   return clean;
