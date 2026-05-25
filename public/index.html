@@ -437,8 +437,7 @@ function cleanTrailing(s) { return s.replace(/\s*\[\.?\]?\s*$/g, "").trim(); }
 
 // ---- Copy for publish ----
 function cleanupForCopy(text) {
-  let clean = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
-  clean = clean.replace(/https?:\/\/[^\s)]+/g, "");
+  let clean = text.replace(/https?:\/\/[^\s)]+/g, "");
   clean = cleanReadMore(clean);
   clean = cleanTrailing(clean);
   return clean;
@@ -507,7 +506,9 @@ function copyHtml() {
   // Substack-friendly copy: paste as formatted text, never raw HTML code
   try {
     const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-    const md = cleanupForCopy(currentNewsletterContent);
+    const md = optimizeMarkdown(currentNewsletterContent)
+      .replace(/\*Built with DeepSeek \| Subscribe\*/g, "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*")
+      .replace(/\*Also by us: Employer Pressure Gauge/g, "*Also by us: [Employer Pressure Gauge](https://employerpressuregauge.com)");
     const textBlob = new Blob([md], { type: 'text/plain' });
     navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })]).then(() => {
       showToast("Paste into Substack — formatting preserved", "success");
@@ -515,8 +516,9 @@ function copyHtml() {
   } catch (e) { copyMdFallback(); }
 }
 function copyMdFallback() {
-  // If ClipboardItem API fails, copy clean markdown instead of raw HTML
-  const md = cleanupForCopy(currentNewsletterContent);
+  let md = optimizeMarkdown(currentNewsletterContent)
+    .replace(/\*Built with DeepSeek \| Subscribe\*/g, "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*")
+    .replace(/\*Also by us: Employer Pressure Gauge/g, "*Also by us: [Employer Pressure Gauge](https://employerpressuregauge.com)");
   navigator.clipboard.writeText(md).then(() => {
     showToast("Copied as markdown (paste into Substack works too)", "success");
   }).catch(() => showToast("Failed to copy", "error"));
