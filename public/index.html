@@ -361,11 +361,15 @@ async function doGenerate() {
 // ---- Markdown renderer (optimized for Substack) ----
 function emojiForTitle(title) {
   const map = [
-    [/tesla|xpeng|fsd|auto|ev|car|driving|nvidia|chip/i, '🚗'],
-    [/tencent|wechat|weixin|阿里|alibaba|百度|baidu|字节|bytedance|管理|manage|team|org/i, '🏢'],
-    [/tsmc|samsung|半导体|semicon|chip|foundry|protest|strike|worker|employee/i, '⚡'],
-    [/deepseek|openai|gpt|claude|gemini|llm|model|open source|开源/i, '🤖'],
-    [/alibaba|jd\.com|meituan|拼多多|pinduoduo|电商|ecommerce|retail|grocer|京东/i, '🛒'],
+    // E-commerce BEFORE company (alibaba/meituan are retail here)
+    [/meituan|拼多多|pinduoduo|电商|ecommerce|retail|grocer|京东/i, '🛒'],
+    [/alibaba.*(?:grocer|retail|battle|acqui|bid)/i, '🛒'],
+    [/tesla|xpeng|fsd|auto\b|ev\b|\bcar\b|driving|nvidia/i, '🚗'],
+    [/tencent|wechat|weixin|百度|baidu|字节|bytedance|管理|manage|team|org|phase.*out|restructur/i, '🏢'],
+    [/protest|strike|worker|employee|bonus.*cut|salary|wage/i, '⚡'],
+    [/tsmc|samsung|半导体|semicon|foundry|\bchip\b/i, '🔧'],
+    [/deepseek|openai|gpt|claude|gemini|llm|\bmodel\b|open.source|开源|outage/i, '🤖'],
+    [/alibaba|阿里/i, '🏢'],
     [/huawei|华为|鸿蒙|harmony/i, '📱'],
     [/robot|机器人|humanoid|embodied/i, '🦾'],
     [/nuclear|energy|power|核|能源|光伏|solar/i, '🔋'],
@@ -452,7 +456,7 @@ function optimizeMarkdown(text) {
   const lines = text.split("\n");
   const out = [];
   let inSignals = false, inByNumbers = false;
-  let prevH3 = false;
+  let signalCount = 0;
   for (const line of lines) {
     const t = line.trim();
     if (t.startsWith("## Signals")) inSignals = true;
@@ -460,14 +464,13 @@ function optimizeMarkdown(text) {
     if (t.startsWith("## Worth a Read")) { inSignals = false; inByNumbers = false; }
     if (t === "---") { inSignals = false; inByNumbers = false; }
 
-    // Add emoji to h3 in Signals section
+    // Add emoji + separator to h3 in Signals section
     if (inSignals && t.startsWith("### ")) {
-      if (prevH3) out.push("", "---", "");
+      if (signalCount > 0) out.push("", "---", "");
       out.push("### " + emojiForTitle(t.slice(4)) + t.slice(4));
-      prevH3 = true;
+      signalCount++;
       continue;
     }
-    prevH3 = false;
 
     // Format By the Numbers as blockquotes
     if (inByNumbers && (t.startsWith("**") || /^\d/.test(t))) {
