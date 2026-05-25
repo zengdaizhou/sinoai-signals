@@ -65,102 +65,7 @@ async function saveDebugScreenshot(page, name) {
   } catch (e) { /* ignore */ }
 }
 
-// ─── Approach 1: REST API (bypasses Cloudflare entirely) ──
-async function publishViaApi(fullTitle, bodyHtml) {
-  const pubHost = new URL(PUBLICATION).host;
-  const sidDecoded = decodeURIComponent(SID);
-
-  const headers = {
-    "Cookie": `connect.sid=${sidDecoded}`,
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  };
-
-  const baseUrl = PUBLICATION.replace(/\/$/, "");
-
-  console.error("[API] Trying direct REST API publish...");
-
-  // Step 1: Get CSRF token from init endpoint
-  const initRes = await fetch(`${baseUrl}/publish/api/v1/init`, {
-    method: "POST",
-    headers: { ...headers, "X-CSRF-Token": "null" },
-  }).catch(() => null);
-
-  if (!initRes || !initRes.ok) {
-    console.error("[API] Init failed:", initRes?.status);
-    return null;
-  }
-
-  const initData = await initRes.json().catch(() => ({}));
-  console.error("[API] Init OK, got draft info");
-
-  // Step 2: Create a draft (Substack uses a specific format)
-  // The editor auto-saves when you navigate to /publish
-  // Try the simpler approach: create via form data
-  const createRes = await fetch(`${baseUrl}/publish/api/v1/drafts`, {
-    method: "POST",
-    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
-    body: JSON.stringify({
-      audience: "everyone",
-      send: false,
-      type: "newsletter",
-      title: fullTitle,
-    }),
-  }).catch(() => null);
-
-  if (!createRes || !createRes.ok) {
-    console.error("[API] Create draft failed:", createRes?.status);
-    return null;
-  }
-
-  const draft = await createRes.json().catch(() => ({}));
-  const draftId = draft.id || draft.draft_id || draft.draftId;
-  if (!draftId) {
-    console.error("[API] No draft ID in response");
-    return null;
-  }
-
-  console.error(`[API] Draft created: ${draftId}`);
-
-  // Step 3: Update draft with full HTML body
-  const updateRes = await fetch(`${baseUrl}/publish/api/v1/drafts/${draftId}`, {
-    method: "PUT",
-    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
-    body: JSON.stringify({
-      title: fullTitle,
-      body: bodyHtml,
-      audience: "everyone",
-      type: "newsletter",
-      send: false,
-    }),
-  }).catch(() => null);
-
-  if (!updateRes || !updateRes.ok) {
-    console.error("[API] Update draft failed:", updateRes?.status);
-    return null;
-  }
-  console.error("[API] Draft updated with content");
-
-  // Step 4: Publish the draft
-  const publishRes = await fetch(`${baseUrl}/publish/api/v1/drafts/${draftId}/publish`, {
-    method: "POST",
-    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
-    body: JSON.stringify({ send: false }),
-  }).catch(() => null);
-
-  if (!publishRes || !publishRes.ok) {
-    console.error("[API] Publish failed:", publishRes?.status);
-    return null;
-  }
-
-  const pubData = await publishRes.json().catch(() => ({}));
-  const postUrl = pubData.url || pubData.canonical_url || `${baseUrl}/p/${draftId}`;
-  console.error("[API] Published successfully!");
-  return postUrl;
-}
-
-// ─── Approach 2: Puppeteer (with Cloudflare bypass) ────────
+// ─── Puppeteer publish (with Cloudflare bypass) ───────────
 async function publishViaPuppeteer(fullTitle, bodyHtml, fullHtml) {
   const CHROME_PATHS = [
     "/usr/bin/chromium-browser",
@@ -426,26 +331,14 @@ async function main() {
     '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek · <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>' +
     '</div>';
 
-  // ── Strategy: API first, then Puppeteer fallback ──
+  // ── Publish via Puppeteer ──
   let url = null;
-
-  if (SID) {
-    try {
-      url = await publishViaApi(fullTitle, fullHtml);
-    } catch (e) {
-      console.error("[API] Exception:", e.message);
-    }
-  }
-
-  if (!url) {
-    console.error("[Fallback] Switching to Puppeteer...");
-    try {
-      url = await publishViaPuppeteer(fullTitle, bodyHtml, fullHtml);
-    } catch (e) {
-      console.error("[Puppeteer] Exception:", e.message);
-      console.error("[FAIL] All publish methods failed");
-      process.exit(1);
-    }
+  try {
+    url = await publishViaPuppeteer(fullTitle, bodyHtml, fullHtml);
+  } catch (e) {
+    console.error("[Puppeteer] Exception:", e.message);
+    console.error("[FAIL] Publish failed");
+    process.exit(1);
   }
 
   console.log(url);
