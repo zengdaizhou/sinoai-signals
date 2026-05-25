@@ -358,23 +358,69 @@ async function doGenerate() {
   } catch (e) { showToast("Failed: " + e.message, "error"); } finally { btn.disabled = false; btn.textContent = "+ Generate Now"; }
 }
 
-// ---- Markdown renderer ----
+// ---- Markdown renderer (optimized for Substack) ----
+function emojiForTitle(title) {
+  const map = [
+    [/tesla|xpeng|fsd|auto|ev|car|driving|nvidia|chip/i, '🚗'],
+    [/tencent|wechat|weixin|阿里|alibaba|百度|baidu|字节|bytedance|管理|manage|team|org/i, '🏢'],
+    [/tsmc|samsung|半导体|semicon|chip|foundry|protest|strike|worker|employee/i, '⚡'],
+    [/deepseek|openai|gpt|claude|gemini|llm|model|open source|开源/i, '🤖'],
+    [/alibaba|jd\.com|meituan|拼多多|pinduoduo|电商|ecommerce|retail|grocer|京东/i, '🛒'],
+    [/huawei|华为|鸿蒙|harmony/i, '📱'],
+    [/robot|机器人|humanoid|embodied/i, '🦾'],
+    [/nuclear|energy|power|核|能源|光伏|solar/i, '🔋'],
+    [/space|航天|satellite|火箭|rocket|星链/i, '🚀'],
+    [/funding|融资|valuation|估值|ipo|invest/i, '💰'],
+    [/regulation|监管|policy|政策|ban|restrict/i, '⚖️'],
+    [/education|教育|school|university|大学/i, '📚'],
+    [/health|医疗|medic|pharma|药|基因|gene/i, '🧬'],
+  ];
+  for (const [re, emoji] of map) {
+    if (re.test(title)) return emoji + ' ';
+  }
+  return '';
+}
+
 function mdToHtml(text) {
   const lines = text.split("\n");
   let html = "", inList = false;
+  let inSignals = false, inByNumbers = false, prevHeading = "";
   for (let line of lines) {
     const t = line.trim();
     if (!t) { if (inList) { html += "</ul>\n"; inList = false; } continue; }
-    if (t === "---") { if (inList) { html += "</ul>\n"; inList = false; } html += "<hr>\n"; continue; }
+    if (t === "---") { if (inList) { html += "</ul>\n"; inList = false; } html += "<hr>\n"; inSignals = false; inByNumbers = false; continue; }
+
+    // Track section context
+    if (t.startsWith("## Signals")) inSignals = true;
+    if (t.startsWith("## By the Numbers")) { inSignals = false; inByNumbers = true; }
+    if (t.startsWith("## Worth a Read")) { inSignals = false; inByNumbers = false; }
+
     if (t.startsWith("# ") && !t.startsWith("## ")) { html += "<h1>" + esc(t.slice(2)) + "</h1>\n"; continue; }
     if (t.startsWith("## ") && !t.startsWith("### ")) { html += "<h2>" + esc(t.slice(3)) + "</h2>\n"; continue; }
-    if (t.startsWith("### ")) { html += "<h3>" + esc(t.slice(4)) + "</h3>\n"; continue; }
+    if (t.startsWith("### ")) {
+      if (inList) { html += "</ul>\n"; inList = false; }
+      // Add separator between signal items
+      if (prevHeading.startsWith("### ")) html += "<hr>\n";
+      const title = t.slice(4);
+      html += "<h3>" + emojiForTitle(title) + esc(title) + "</h3>\n";
+      prevHeading = t;
+      continue;
+    }
+    prevHeading = t;
+
     if (t.startsWith("- ") || t.startsWith("* ")) {
       if (!inList) { html += "<ul>\n"; inList = true; }
       html += "  <li>" + inl(cleanTrailing(cleanReadMore(t.slice(2)))) + "</li>\n"; continue;
     }
     if (inList) { html += "</ul>\n"; inList = false; }
     if (t.startsWith("|")) continue;
+
+    // Format By the Numbers items as blockquotes
+    if (inByNumbers && (t.startsWith("**") || /^\d/.test(t))) {
+      html += "<blockquote>" + inl(cleanTrailing(cleanReadMore(t))) + "</blockquote>\n";
+      continue;
+    }
+
     html += "<p>" + inl(cleanTrailing(cleanReadMore(t))) + "</p>\n";
   }
   if (inList) html += "</ul>\n";
@@ -395,10 +441,43 @@ function cleanupForCopy(text) {
 }
 function copyMarkdown() {
   if (!currentNewsletterContent) return showToast("No newsletter loaded", "error");
-  const md = cleanupForCopy(currentNewsletterContent);
+  const md = optimizeMarkdown(currentNewsletterContent);
   navigator.clipboard.writeText(md).then(() => {
     showToast("Markdown copied — paste into Substack works", "success");
   }).catch(() => showToast("Failed to copy", "error"));
+}
+
+// Post-process markdown: add emoji, separators, blockquotes
+function optimizeMarkdown(text) {
+  const lines = text.split("\n");
+  const out = [];
+  let inSignals = false, inByNumbers = false;
+  let prevH3 = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (t.startsWith("## Signals")) inSignals = true;
+    if (t.startsWith("## By the Numbers")) { inSignals = false; inByNumbers = true; }
+    if (t.startsWith("## Worth a Read")) { inSignals = false; inByNumbers = false; }
+    if (t === "---") { inSignals = false; inByNumbers = false; }
+
+    // Add emoji to h3 in Signals section
+    if (inSignals && t.startsWith("### ")) {
+      if (prevH3) out.push("", "---", "");
+      out.push("### " + emojiForTitle(t.slice(4)) + t.slice(4));
+      prevH3 = true;
+      continue;
+    }
+    prevH3 = false;
+
+    // Format By the Numbers as blockquotes
+    if (inByNumbers && (t.startsWith("**") || /^\d/.test(t))) {
+      out.push("> " + t);
+      continue;
+    }
+
+    out.push(line);
+  }
+  return cleanupForCopy(out.join("\n"));
 }
 function substackHtml(text) {
   const body = mdToHtml(cleanupForCopy(text));
@@ -412,7 +491,7 @@ function substackHtml(text) {
       .replace(/<hr>/g, '<hr style="border:none;border-top:1px solid #e5e5e5;margin:40px 0">')
       .replace(/<ul>/g, '<ul style="padding-left:24px">')
       .replace(/<li>/g, '<li style="margin:8px 0">')
-    + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek &middot; <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>'
+    + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek &middot; <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a><br>Also by us: <a href="https://employerpressuregauge.com" style="color:inherit">Employer Pressure Gauge</a></p>'
     + '</div>';
 }
 function copyHtml() {
