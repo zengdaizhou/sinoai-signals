@@ -1,4 +1,12 @@
 import RssParser from "rss-parser";
+import { writeFileSync, mkdirSync } from "node:fs";
+
+// ─── Timestamped logging ──────────────────────────────────
+const OUT_DIR = "newsletter-output";
+function log(msg) {
+  const ts = new Date().toISOString().slice(11, 19); // HH:MM:SS
+  console.error(`[${ts}] ${msg}`);
+}
 
 const parser = new RssParser({
   customFields: { item: [["content:encoded", "contentEncoded"]] },
@@ -66,7 +74,7 @@ async function fetchFeeds() {
   for (const s of SOURCES) {
     try {
       const feed = await parser.parseURL(s.url);
-      console.error("[OK] " + s.name + ": " + (feed.items?.length || 0) + " items");
+      log("[OK] " + s.name + ": " + (feed.items?.length || 0) + " items");
       for (const item of feed.items || []) {
         const raw = item.contentEncoded || item.content || item.contentSnippet || item.description || "";
         all.push({
@@ -78,7 +86,7 @@ async function fetchFeeds() {
         });
       }
     } catch (e) {
-      console.error("[ERR] " + s.name + ": " + e.message);
+      log("[ERR] " + s.name + ": " + e.message);
     }
   }
   return all;
@@ -163,7 +171,7 @@ async function translateArticle(item) {
   // Try to fetch full content if RSS snippet is too short
   let content = item.rawContent;
   if (content.length < 500 && item.link) {
-    console.error("    └─ fetching full article...");
+    log("    └─ fetching full article...");
     const full = await fetchArticleContent(item.link);
     if (full.length > content.length) content = full;
   }
@@ -189,10 +197,10 @@ async function translateArticle(item) {
     return { ...item, engTitle, englishSummary: summary, dataPoint };
   } catch (e) {
     if (e.message?.includes("Content Exists Risk")) {
-      console.error("    └─ filtered, skipping");
+      log("    └─ filtered, skipping");
       return null;
     }
-    console.error("    └─ error: " + e.message.slice(0, 50));
+    log("    └─ error: " + e.message.slice(0, 50));
     return null;
   }
 }
@@ -249,37 +257,49 @@ function cleanReadMore(s) { return s.replace(/\.?\s*\[?\s*[Rr]ead\s+(more|origin
 function cleanTrailing(s) { return s.replace(/\s*\[\.?\]?\s*$/g, "").trim(); }
 
 async function main() {
-  console.error("[1/4] Fetching RSS feeds...");
-  let items = await fetchFeeds();
+  const startTime = Date.now();
+  let feedsFetched = 0;
+  let articlesFiltered = 0;
+  let articlesTranslated = 0;
+  let curationUsed = false;
 
-  console.error("\n[2/4] Filtering...");
+  mkdirSync(OUT_DIR, { recursive: true });
+
+  log("[1/4] Fetching RSS feeds...");
+  let items = await fetchFeeds();
+  feedsFetched = items.length;
+
+  log("[2/4] Filtering...");
   items = filterRecent(items, 1);
   items = dedup(items);
   const before = items.length;
   items = filterRelevant(items);
-  console.error("  " + items.length + " relevant articles (removed " + (before - items.length) + ")");
+  articlesFiltered = items.length;
+  log("  " + items.length + " relevant articles (removed " + (before - items.length) + ")");
 
   items.sort((a, b) => b.rawContent.length - a.rawContent.length);
   items = items.slice(0, 8);
 
-  console.error("\n[3/4] Translating " + items.length + " articles...");
+  log("[3/4] Translating " + items.length + " articles...");
   const translated = [];
   const concurrency = 4;
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);
-    console.error("  batch " + (Math.floor(i/concurrency)+1) + ": " + batch.map(a => a.title.slice(0,30)).join(" | "));
+    log("  batch " + (Math.floor(i/concurrency)+1) + ": " + batch.map(a => a.title.slice(0,30)).join(" | "));
     const results = await Promise.allSettled(batch.map(a => translateArticle(a)));
     for (const r of results) {
       if (r.status === "fulfilled" && r.value) translated.push(r.value);
     }
   }
+  articlesTranslated = translated.length;
 
   if (translated.length === 0) {
-    console.error("[ERROR] No articles translated.");
+    log("[FAIL] No articles translated.");
+    writeFileSync(OUT_DIR + "/.quality", "passed: false\nreason: no articles translated\n");
     process.exit(1);
   }
 
-  console.error("\n[4/4] Curating newsletter...");
+  log("[4/4] Curating newsletter...");
 
   // Collect all data points for By the Numbers
   const dataPoints = translated.map(t => t.dataPoint).filter(Boolean);
@@ -333,9 +353,10 @@ async function main() {
           (dataPoints.length ? "\n\nData points for 'By the Numbers':\n" + dataPoints.map((d, i) => (i+1) + ". " + d).join("\n") : ""),
       },
     ]);
-    console.error("[OK] AI curation succeeded.\n");
+    curationUsed = true;
+    log("[OK] AI curation succeeded.");
   } catch (e) {
-    console.error("[FALLBACK] " + (e.message || "").slice(0, 50));
+    log("[FALLBACK] " + (e.message || "").slice(0, 50));
     body = "## The Big Story\n\n**" + translated[0].engTitle + "**\n\n" +
       translated[0].englishSummary + "\n\n---\n\n## Signals\n\n";
     for (let i = 1; i < translated.length; i++) {
@@ -345,29 +366,27 @@ async function main() {
 
   // Post-process: strip any remaining source/attribution junk
   body = body
-    // Strip full markdown links: [text](url) → just the text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    // Strip bare URLs
     .replace(/https?:\/\/[^\s)]+/g, "")
-    // Strip org names used as sources
     .replace(/\([Ss]ource:[^)]*\)/g, "")
     .replace(/\([Vv]ia:[^)]*\)/g, "")
     .replace(/\([Cc]redit[^)]*\)/g, "")
-    // Strip remaining brackets (safety net)
     .replace(/\s*\[[^\]]*\]\s*/g, " ")
-    // Strip "Read more" and trailing text — ONE LINE ONLY, don't eat across paragraphs
     .replace(/[Rr]ead\s+(more|original|article)\b[^.\n]*\.?\s*/gi, "")
     .replace(/according\s+to\s+[^.\n]+\.?\s*/gi, "")
     .replace(/ {2,}/g, " ")
     .trim();
 
+  // ─── EPG cross-promotion in footer ─────────────────────
   const output =
     "# SinoAI Signals\n\n" +
     "*" + date + " — Your daily briefing on China's AI landscape*\n\n" +
     body + "\n\n---\n\n" +
-    "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*\n";
+    "*Built with DeepSeek | [Subscribe](https://sinoaisignals.substack.com)*\n" +
+    "*Also by us: [Employer Pressure Gauge](https://employerpressuregauge.com) — track workplace sentiment*\n";
 
-  console.log(output);
+  writeFileSync(OUT_DIR + "/newsletter.md", output);
+  log("[OK] Markdown saved: " + OUT_DIR + "/newsletter.md");
 
   // Generate HTML version
   try {
@@ -400,14 +419,13 @@ async function main() {
 <body>
 <img alt="SinoAI Signals" src="data:image/svg+xml,${encodeURIComponent(coverSvg(date))}" style="display:block;width:100%;max-width:640px;height:auto;margin:0 auto 32px;border-radius:8px">
 ${htmlBody(body)}
-<p class="footer"><em>Built with DeepSeek</em> · <a href="https://sinoaisignals.substack.com">Subscribe</a></p>
+<p class="footer"><em>Built with DeepSeek</em> · <a href="https://sinoaisignals.substack.com">Subscribe</a><br><em>Also by us: <a href="https://employerpressuregauge.com">Employer Pressure Gauge</a></em></p>
 </body>
 </html>`;
-    const { writeFileSync } = await import("node:fs");
-    writeFileSync("newsletter.html", html);
-    console.error("[OK] HTML file saved: newsletter.html");
+    writeFileSync(OUT_DIR + "/newsletter.html", html);
+    log("[OK] HTML saved: " + OUT_DIR + "/newsletter.html");
   } catch (e) {
-    console.error("[SKIP] HTML generation: " + (e.message || "").slice(0, 50));
+    log("[SKIP] HTML generation: " + (e.message || "").slice(0, 50));
   }
 
   // Generate RSS feed
@@ -432,12 +450,33 @@ ${htmlBody(body)}
   </item>
 </channel>
 </rss>`;
-    const { writeFileSync } = await import("node:fs");
-    writeFileSync("rss.xml", rss);
-    console.error("[OK] RSS feed saved: rss.xml");
+    writeFileSync(OUT_DIR + "/rss.xml", rss);
+    log("[OK] RSS saved: " + OUT_DIR + "/rss.xml");
   } catch (e) {
-    console.error("[SKIP] RSS generation: " + (e.message || "").slice(0, 50));
+    log("[SKIP] RSS generation: " + (e.message || "").slice(0, 50));
   }
+
+  // ─── Quality gate ──────────────────────────────────────
+  const qualityPassed = articlesTranslated >= 3;
+  const qualityFile = "passed: " + qualityPassed + "\n" +
+    "reason: " + (qualityPassed ? "at least 3 articles translated" : "only " + articlesTranslated + " articles translated") + "\n" +
+    "feeds: " + feedsFetched + "\n" +
+    "filtered: " + articlesFiltered + "\n" +
+    "translated: " + articlesTranslated + "\n" +
+    "curation: " + (curationUsed ? "ai" : "fallback") + "\n";
+  writeFileSync(OUT_DIR + "/.quality", qualityFile);
+
+  // ─── Run summary ───────────────────────────────────────
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  log("SUMMARY");
+  log("  Feeds fetched:   " + feedsFetched);
+  log("  After filter:    " + articlesFiltered);
+  log("  Translated:      " + articlesTranslated);
+  log("  Quality gate:    " + (qualityPassed ? "PASSED" : "FAILED"));
+  log("  Curation:        " + (curationUsed ? "AI" : "fallback"));
+  log("  Time:            " + elapsed + "s");
+  log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch(e => { log("FATAL: " + (e.message || e)); process.exit(1); });

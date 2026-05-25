@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 puppeteer.use(StealthPlugin());
@@ -8,31 +8,172 @@ const PASSWORD = process.env.SUBSTACK_PASSWORD;
 const SID = process.env.SUBSTACK_SID;
 const PUBLICATION = process.env.SUBSTACK_URL || "https://sinoaisignals.substack.com";
 
-async function main() {
-  const md = readFileSync("newsletter.md", "utf-8");
-  const lines = md.trim().split("\n");
-  const titleLine = lines[0].replace(/^#\s*/, "").trim();
-  const dateLine = lines[2]?.replace(/^\*|\*.*$/g, "").trim() || "";
-  const content = lines.slice(4).join("\n").trim();
+// ─── Helper: sleep ────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  // Convert markdown to HTML for Substack
-  const bodyHtml = mdToHtml(content);
-  const coverSvg = coverSvg_(dateLine);
-  const fullHtml = '<div style="max-width:640px;margin:0 auto;padding:20px 20px 40px;font-family:Georgia,\'Times New Roman\',Times,serif;font-size:20px;line-height:1.6;color:#111">'
-    + '<img src="data:image/svg+xml,' + encodeURIComponent(coverSvg) + '" style="display:block;width:100%;height:auto;margin:0 auto 32px;border-radius:8px">'
-    + bodyHtml
-    + '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek · <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>'
-    + '</div>';
+// ─── Helper: detect Cloudflare challenge page ─────────────
+function isCloudflareBlocked(page) {
+  return page.evaluate(() => {
+    const title = document.title || "";
+    const body = document.body?.innerText || "";
+    return (
+      title.includes("Just a moment") ||
+      title.includes("Attention Required") ||
+      title.includes("Cloudflare") ||
+      title.includes("Checking") ||
+      body.includes("Checking your browser") ||
+      body.includes("DDoS protection") ||
+      body.includes("cf-browser-verification") ||
+      !!document.querySelector("#challenge-form") ||
+      !!document.querySelector("#cf-challenge") ||
+      !!document.querySelector('[id*="challenge"]')
+    );
+  });
+}
 
+// ─── Helper: wait for Cloudflare challenge to resolve ────
+async function waitForCloudflare(page, maxWaitMs = 60000) {
+  console.error("  Cloudflare challenge detected, waiting...");
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    await sleep(3000);
+    try {
+      const stillBlocked = await page.evaluate(() => {
+        const t = document.title || "";
+        const b = document.body?.innerText || "";
+        return t.includes("Just a moment") || t.includes("Cloudflare") ||
+               b.includes("Checking your browser") || !!document.querySelector("#challenge-form");
+      }).catch(() => true);
+      if (!stillBlocked) {
+        console.error("  Cloudflare challenge resolved after " + ((Date.now() - start) / 1000).toFixed(0) + "s");
+        return true;
+      }
+      console.error("  Still waiting... (" + ((Date.now() - start) / 1000).toFixed(0) + "s)");
+    } catch { /* keep waiting */ }
+  }
+  console.error("  Cloudflare challenge timed out after " + (maxWaitMs / 1000) + "s");
+  return false;
+}
+
+// ─── Helper: save debug screenshot ────────────────────────
+async function saveDebugScreenshot(page, name) {
+  try {
+    mkdirSync(".debug", { recursive: true });
+    const p = `.debug/${name}-${Date.now()}.png`;
+    await page.screenshot({ path: p, fullPage: false });
+    console.error("  Screenshot saved:", p);
+  } catch (e) { /* ignore */ }
+}
+
+// ─── Approach 1: REST API (bypasses Cloudflare entirely) ──
+async function publishViaApi(fullTitle, bodyHtml) {
+  const pubHost = new URL(PUBLICATION).host;
+  const sidDecoded = decodeURIComponent(SID);
+
+  const headers = {
+    "Cookie": `connect.sid=${sidDecoded}`,
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  };
+
+  const baseUrl = PUBLICATION.replace(/\/$/, "");
+
+  console.error("[API] Trying direct REST API publish...");
+
+  // Step 1: Get CSRF token from init endpoint
+  const initRes = await fetch(`${baseUrl}/publish/api/v1/init`, {
+    method: "POST",
+    headers: { ...headers, "X-CSRF-Token": "null" },
+  }).catch(() => null);
+
+  if (!initRes || !initRes.ok) {
+    console.error("[API] Init failed:", initRes?.status);
+    return null;
+  }
+
+  const initData = await initRes.json().catch(() => ({}));
+  console.error("[API] Init OK, got draft info");
+
+  // Step 2: Create a draft (Substack uses a specific format)
+  // The editor auto-saves when you navigate to /publish
+  // Try the simpler approach: create via form data
+  const createRes = await fetch(`${baseUrl}/publish/api/v1/drafts`, {
+    method: "POST",
+    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
+    body: JSON.stringify({
+      audience: "everyone",
+      send: false,
+      type: "newsletter",
+      title: fullTitle,
+    }),
+  }).catch(() => null);
+
+  if (!createRes || !createRes.ok) {
+    console.error("[API] Create draft failed:", createRes?.status);
+    return null;
+  }
+
+  const draft = await createRes.json().catch(() => ({}));
+  const draftId = draft.id || draft.draft_id || draft.draftId;
+  if (!draftId) {
+    console.error("[API] No draft ID in response");
+    return null;
+  }
+
+  console.error(`[API] Draft created: ${draftId}`);
+
+  // Step 3: Update draft with full HTML body
+  const updateRes = await fetch(`${baseUrl}/publish/api/v1/drafts/${draftId}`, {
+    method: "PUT",
+    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
+    body: JSON.stringify({
+      title: fullTitle,
+      body: bodyHtml,
+      audience: "everyone",
+      type: "newsletter",
+      send: false,
+    }),
+  }).catch(() => null);
+
+  if (!updateRes || !updateRes.ok) {
+    console.error("[API] Update draft failed:", updateRes?.status);
+    return null;
+  }
+  console.error("[API] Draft updated with content");
+
+  // Step 4: Publish the draft
+  const publishRes = await fetch(`${baseUrl}/publish/api/v1/drafts/${draftId}/publish`, {
+    method: "POST",
+    headers: { ...headers, "X-CSRF-Token": initData.csrfToken || "null" },
+    body: JSON.stringify({ send: false }),
+  }).catch(() => null);
+
+  if (!publishRes || !publishRes.ok) {
+    console.error("[API] Publish failed:", publishRes?.status);
+    return null;
+  }
+
+  const pubData = await publishRes.json().catch(() => ({}));
+  const postUrl = pubData.url || pubData.canonical_url || `${baseUrl}/p/${draftId}`;
+  console.error("[API] Published successfully!");
+  return postUrl;
+}
+
+// ─── Approach 2: Puppeteer (with Cloudflare bypass) ────────
+async function publishViaPuppeteer(fullTitle, bodyHtml, fullHtml) {
   const CHROME_PATHS = [
     "/usr/bin/chromium-browser",
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/chromium",
   ];
   const executablePath = process.env.PUPPETEER_EXEC_PATH
     || CHROME_PATHS.find(p => existsSync(p));
 
-  console.error("Launching browser...");
+  console.error("[Puppeteer] Launching browser" + (executablePath ? ": " + executablePath : "") + "...");
+
   const browser = await puppeteer.launch({
     executablePath,
     headless: "new",
@@ -41,22 +182,58 @@ async function main() {
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-blink-features=AutomationControlled",
+      "--disable-features=IsolateOrigins,site-per-process",
+      "--disable-web-security",
+      "--disable-features=BlockInsecurePrivateNetworkRequests",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+      "--disable-features=TranslateUI",
+      "--disable-ipc-flooding-protection",
+      "--window-size=1280,800",
     ],
+    // ignoreDefaultArgs: ["--enable-automation"],
   });
 
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
 
-    // Realistic user-agent to avoid Cloudflare detection
+    // More realistic user agent
     await page.setUserAgent(
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     );
 
-    // Must be on the domain before setting cookies
-    await page.goto(PUBLICATION, { waitUntil: "networkidle0", timeout: 30000 });
+    // Pre-inject WebDriver evasion before any page loads
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
+      const origQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters) => (
+        parameters.name === "notifications"
+          ? Promise.resolve({ state: Notification.permission })
+          : origQuery(parameters)
+      );
+    });
 
-    // Login or set cookie
+    // Step 1: Navigate to publication to get domain context
+    console.error("[Puppeteer] Visiting publication...");
+    await page.goto(PUBLICATION, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await sleep(2000);
+
+    // Check for Cloudflare challenge
+    if (await isCloudflareBlocked(page)) {
+      const passed = await waitForCloudflare(page);
+      if (!passed) {
+        await saveDebugScreenshot(page, "cf-timeout");
+        throw new Error("Cloudflare challenge timed out");
+      }
+      // Reload after challenge passes
+      await page.goto(PUBLICATION, { waitUntil: "networkidle0", timeout: 30000 });
+    }
+
+    // Step 2: Set auth cookie
     if (SID) {
       await page.setCookie({
         name: "connect.sid",
@@ -66,81 +243,130 @@ async function main() {
         httpOnly: true,
         sameSite: "Lax",
       });
-      console.error("Cookie set, navigating to publish...");
+      console.error("[Puppeteer] Cookie set");
     } else if (EMAIL && PASSWORD) {
-      console.error("Logging in...");
-      await page.goto("https://substack.com/sign-in", { waitUntil: "networkidle2" });
-      await page.type('input[type="email"]', EMAIL);
-      await page.type('input[type="password"]', PASSWORD);
+      console.error("[Puppeteer] Logging in...");
+      await page.goto("https://substack.com/sign-in", { waitUntil: "networkidle2", timeout: 30000 });
+      if (await isCloudflareBlocked(page)) {
+        await waitForCloudflare(page);
+      }
+      await page.type('input[type="email"]', EMAIL, { delay: 50 });
+      await page.type('input[type="password"]', PASSWORD, { delay: 50 });
       await page.click('button[type="submit"]');
-      await page.waitForNavigation({ waitUntil: "networkidle2" });
-      console.error("Logged in.");
+      await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 });
+      console.error("[Puppeteer] Logged in");
     } else {
       throw new Error("Set SUBSTACK_SID or SUBSTACK_EMAIL + SUBSTACK_PASSWORD");
     }
 
-    // Navigate to publish page
-    await page.goto(PUBLICATION + "/publish", { waitUntil: "networkidle0", timeout: 30000 });
-    console.error("On publish page:", page.url());
+    // Step 3: Navigate to publish page with retries
+    let editorFound = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.error(`[Puppeteer] Publish page attempt ${attempt}/3...`);
+      await page.goto(PUBLICATION + "/publish", { waitUntil: "domcontentloaded", timeout: 30000 });
+      await sleep(2000);
 
-    // Wait for editor to load (Cloudflare challenge may add delay)
-    try {
-      await page.waitForSelector('[contenteditable]', { timeout: 20000 });
-    } catch {
-      // Debug: dump page state
-      console.error("Editor not found. URL:", page.url());
-      console.error("Page title:", await page.title());
-      const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || "no body");
-      console.error("Body text:", bodyText);
-      throw new Error("Editor not found — cookie may be expired");
+      if (await isCloudflareBlocked(page)) {
+        const passed = await waitForCloudflare(page);
+        if (!passed) {
+          await saveDebugScreenshot(page, `cf-blocked-attempt-${attempt}`);
+          if (attempt < 3) continue;
+          throw new Error("Cloudflare block persists after 3 attempts");
+        }
+        // Retry navigation after challenge passes
+        await page.goto(PUBLICATION + "/publish", { waitUntil: "networkidle0", timeout: 30000 });
+      }
+
+      console.error("[Puppeteer] Current URL:", page.url());
+
+      // Wait for editor
+      try {
+        await page.waitForSelector('[contenteditable]', { timeout: 20000 });
+        editorFound = true;
+        break;
+      } catch {
+        await saveDebugScreenshot(page, `no-editor-attempt-${attempt}`);
+        console.error("[Puppeteer] Editor not found on attempt " + attempt);
+        if (attempt < 3) {
+          console.error("[Puppeteer] Waiting 10s before retry...");
+          await sleep(10000);
+        }
+      }
     }
 
-    // Set title
-    const titleEl = await page.$('input[placeholder*="Title"], [contenteditable][placeholder*="Title"]');
-    if (titleEl) {
-      await titleEl.click({ clickCount: 3 });
-      await titleEl.type(titleLine + " — " + dateLine);
+    if (!editorFound) {
+      // Final debug: dump page state
+      console.error("[Puppeteer] Final URL:", page.url());
+      const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || "no body").catch(() => "eval failed");
+      console.error("[Puppeteer] Body text:", bodyText);
+      throw new Error("Editor not found after 3 attempts — cookie may be expired or Substack changed UI");
     }
 
-    // Click into body and paste HTML
+    // Step 4: Set title
+    const titleSelectors = [
+      'input[placeholder*="Title"]',
+      '[contenteditable][placeholder*="Title"]',
+      'input[placeholder*="title"]',
+      '[data-testid="post-title"]',
+    ];
+    for (const sel of titleSelectors) {
+      const el = await page.$(sel);
+      if (el) {
+        await el.click({ clickCount: 3 });
+        await el.type(fullTitle, { delay: 20 });
+        console.error("[Puppeteer] Title set");
+        break;
+      }
+    }
+
+    // Step 5: Insert HTML body into editor
     const bodyEl = await page.$('[contenteditable]');
     if (bodyEl) {
-      // Focus and clear
       await bodyEl.click();
-      await bodyEl.evaluate(el => el.innerHTML = "");
-
-      // Set HTML content
+      await bodyEl.evaluate(el => { el.innerHTML = ""; });
+      // Substack uses ProseMirror; insertHTML works as a fallback
       await bodyEl.evaluate((html) => {
-        document.execCommand("insertHTML", false, html);
+        try {
+          document.execCommand("insertHTML", false, html);
+        } catch (e) {
+          // fallback: set innerHTML directly
+          const el = document.querySelector('[contenteditable]');
+          if (el) el.innerHTML = html;
+        }
       }, fullHtml);
+      console.error("[Puppeteer] Content set");
     }
 
-    console.error("Content set.");
+    await sleep(2000);
 
-    // Click Publish button (using XPath — :contains is not native CSS)
+    // Step 6: Publish
     const [publishBtn] = await page.$x('//button[contains(text(), "Publish")]');
-    if (publishBtn) {
-      await publishBtn.click();
-      // Maybe confirm in dialog
-      await new Promise(r => setTimeout(r, 2000));
-      const [confirmBtn] = await page.$x('//button[contains(text(), "Confirm") or contains(text(), "Publish now")]');
-      if (confirmBtn) await confirmBtn.click();
-      // Wait for navigation after publish
-      await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 15000 }).catch(() => {});
-      console.error("Published!");
+    if (!publishBtn) throw new Error("Publish button not found");
+
+    await publishBtn.click();
+    await sleep(2000);
+
+    // Handle confirmation dialog
+    const [confirmBtn] = await page.$x('//button[contains(text(), "Confirm") or contains(text(), "Publish now") or contains(text(), "Continue")]');
+    if (confirmBtn) {
+      await confirmBtn.click();
+      console.error("[Puppeteer] Confirmed publish");
     }
 
-    // Get the published post URL
-    await new Promise(r => setTimeout(r, 2000));
+    // Wait for publish to complete
+    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 20000 }).catch(() => {});
+    await sleep(3000);
+
     const url = page.url();
-    console.log(url);
+    console.error("[Puppeteer] Published! URL:", url);
+    return url;
 
   } finally {
     await browser.close();
   }
 }
 
-// ---- Markdown to HTML ----
+// ─── Markdown to HTML converters ──────────────────────────
 function mdToHtml(text) {
   const lines = text.split("\n");
   let html = "", inList = false;
@@ -176,6 +402,53 @@ function coverSvg_(date) {
     <text x="320" y="185" text-anchor="middle" font-family="Georgia,serif" font-size="18" fill="#888" font-style="italic">Your daily briefing on China's AI landscape</text>
     <text x="320" y="258" text-anchor="middle" font-family="Georgia,serif" font-size="15" fill="#666">${esc(date)}</text>
   </svg>`;
+}
+
+// ─── Main ─────────────────────────────────────────────────
+async function main() {
+  if (!existsSync("newsletter-output/newsletter.md")) {
+    console.error("newsletter-output/newsletter.md not found — run index.js first");
+    process.exit(1);
+  }
+
+  const md = readFileSync("newsletter-output/newsletter.md", "utf-8");
+  const lines = md.trim().split("\n");
+  const titleLine = lines[0].replace(/^#\s*/, "").trim();
+  const dateLine = lines[2]?.replace(/^\*|\*.*$/g, "").trim() || "";
+  const content = lines.slice(4).join("\n").trim();
+  const fullTitle = titleLine + " — " + dateLine;
+
+  const bodyHtml = mdToHtml(content);
+  const svgCover = coverSvg_(dateLine);
+  const fullHtml = '<div style="max-width:640px;margin:0 auto;padding:20px 20px 40px;font-family:Georgia,\'Times New Roman\',Times,serif;font-size:20px;line-height:1.6;color:#111">' +
+    '<img src="data:image/svg+xml,' + encodeURIComponent(svgCover) + '" style="display:block;width:100%;height:auto;margin:0 auto 32px;border-radius:8px">' +
+    bodyHtml +
+    '<p style="text-align:center;color:#6b6b6b;font-size:14px;margin-top:48px;border-top:1px solid #e5e5e5;padding-top:24px;font-style:italic">Built with DeepSeek · <a href="https://sinoaisignals.substack.com" style="color:inherit">Subscribe</a></p>' +
+    '</div>';
+
+  // ── Strategy: API first, then Puppeteer fallback ──
+  let url = null;
+
+  if (SID) {
+    try {
+      url = await publishViaApi(fullTitle, fullHtml);
+    } catch (e) {
+      console.error("[API] Exception:", e.message);
+    }
+  }
+
+  if (!url) {
+    console.error("[Fallback] Switching to Puppeteer...");
+    try {
+      url = await publishViaPuppeteer(fullTitle, bodyHtml, fullHtml);
+    } catch (e) {
+      console.error("[Puppeteer] Exception:", e.message);
+      console.error("[FAIL] All publish methods failed");
+      process.exit(1);
+    }
+  }
+
+  console.log(url);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
