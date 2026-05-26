@@ -152,7 +152,7 @@ async function fetchArticleContent(url) {
 
 async function callDeepSeek(messages) {
   const cfg = getApiConfig();
-  const body = { model: cfg.model, messages, stream: false };
+  const body = { model: cfg.model, messages, stream: false, max_tokens: 4000 };
   const res = await fetch(cfg.url, {
     method: "POST",
     headers: {
