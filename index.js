@@ -186,7 +186,8 @@ async function translateArticle(item) {
       {
         role: "system",
         content: "Read Chinese tech news. Output in English for a global reader (use 'China's' not 'domestic' or '国内').\n" +
-          "Format:\nEnglish Title: <one line>\nSummary: <2-3 sentences explaining what happened and why it matters>\nData Point: <one specific number or statistic from the article, if any>",
+          "CRITICAL: Only use facts, names, numbers, and model versions that explicitly appear in the article. Do NOT invent or guess product names, version numbers, or statistics.\n" +
+          "Format:\nEnglish Title: <one line, using actual product names from the article>\nSummary: <2-3 sentences explaining what happened and why it matters, using only facts from the article>\nData Point: <one specific number or statistic from the article, if any. Leave empty if none.>",
       },
       { role: "user", content: input },
     ]);
@@ -329,6 +330,12 @@ async function main() {
           "- This is a curated summary, not a link aggregator. Just write the news cleanly.\n" +
           "- DO NOT include the newsletter name 'SinoAI Signals' — it is added separately.\n" +
           "- Start your response directly with --- (the section divider).\n" +
+          "ACCURACY RULES (CRITICAL):\n" +
+          "- Only use product names, model versions, and numbers that EXPLICITLY appear in the provided articles.\n" +
+          "- Do NOT invent model names (e.g. 'V4', 'V5'), product names (e.g. 'Mate 90'), or version numbers.\n" +
+          "- If an article mentions a model without a version, just say 'its latest model' — do NOT make up a version.\n" +
+          "- Numbers and statistics must come from the provided data points. Do NOT estimate or fabricate.\n" +
+          "- For forward-looking claims (valuations, projections), use hedging language: 'reportedly', 'according to reports'.\n" +
           "Use EXACTLY this format:\n\n" +
           "---\n\n" +
           "**Today:** (one-line theme capturing the day's biggest story)\n\n" +
