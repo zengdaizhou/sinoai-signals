@@ -32,11 +32,11 @@ function isCloudflareBlocked(page) {
 }
 
 // ─── Helper: wait for Cloudflare challenge to resolve ────
-async function waitForCloudflare(page, maxWaitMs = 60000) {
-  console.error("  Cloudflare challenge detected, waiting...");
+async function waitForCloudflare(page, maxWaitMs = 90000) {
+  console.error("  Cloudflare challenge detected, waiting up to " + (maxWaitMs / 1000) + "s...");
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    await sleep(3000);
+    await sleep(5000 + Math.random() * 2000);
     try {
       const stillBlocked = await page.evaluate(() => {
         const t = document.title || "";
@@ -159,23 +159,12 @@ async function publishViaPuppeteer(fullTitle, bodyHtml, fullHtml) {
       };
     });
 
-    // Step 1: Navigate to publication to get domain context
-    console.error("[Puppeteer] Visiting publication...");
-    await page.goto(PUBLICATION, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await sleep(2000);
+    // Step 1: Warm up + set auth cookie on substack.com first
+    console.error("[Puppeteer] Warming up on substack.com...");
+    await page.goto("https://substack.com", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await sleep(3000 + Math.random() * 2000);
 
-    // Check for Cloudflare challenge
-    if (await isCloudflareBlocked(page)) {
-      const passed = await waitForCloudflare(page);
-      if (!passed) {
-        await saveDebugScreenshot(page, "cf-timeout");
-        throw new Error("Cloudflare challenge timed out");
-      }
-      // Reload after challenge passes
-      await page.goto(PUBLICATION, { waitUntil: "networkidle0", timeout: 30000 });
-    }
-
-    // Step 2: Set auth cookie
+    // Set cookie NOW — before visiting the publication
     if (SID) {
       await page.setCookie({
         name: "connect.sid",
