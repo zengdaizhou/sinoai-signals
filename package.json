@@ -7,7 +7,7 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "puppeteer-core": "^25.0.4",
+    "puppeteer": "^25.1.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rss-parser": "^3.13.0"

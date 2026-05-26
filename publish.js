@@ -109,17 +109,54 @@ async function publishViaPuppeteer(fullTitle, bodyHtml, fullHtml) {
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     );
 
-    // Pre-inject WebDriver evasion before any page loads
+    // Pre-inject comprehensive WebDriver evasion before any page loads
     await page.evaluateOnNewDocument(() => {
+      // WebDriver detection
       Object.defineProperty(navigator, "webdriver", { get: () => false });
-      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      delete Object.getPrototypeOf(navigator).webdriver;
+
+      // Plugins (Chrome typically has PDF Viewer, Chrome PDF Plugin, Native Client)
+      Object.defineProperty(navigator, "plugins", {
+        get: () => {
+          const plugins = [
+            { name: "Chrome PDF Plugin", filename: "internal-pdf-viewer", description: "Portable Document Format" },
+            { name: "Chrome PDF Viewer", filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai", description: "" },
+            { name: "Native Client", filename: "internal-nacl-plugin", description: "" },
+          ];
+          plugins.length = 3;
+          plugins.item = (i) => plugins[i];
+          plugins.namedItem = (n) => plugins.find(p => p.name === n);
+          plugins.refresh = () => {};
+          return plugins;
+        },
+      });
+      Object.defineProperty(navigator, "plugins", { configurable: true, enumerable: true });
+
       Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
-      const origQuery = window.navigator.permissions.query;
+
+      // Hardware concurrency (realistic for GitHub Actions 2-core runner)
+      Object.defineProperty(navigator, "hardwareConcurrency", { get: () => 2 });
+
+      // Device memory
+      Object.defineProperty(navigator, "deviceMemory", { get: () => 8 });
+
+      // Permissions override
+      const origQuery = window.navigator.permissions.query.bind(navigator.permissions);
       window.navigator.permissions.query = (parameters) => (
         parameters.name === "notifications"
-          ? Promise.resolve({ state: Notification.permission })
+          ? Promise.resolve({ state: Notification.permission, onchange: null })
           : origQuery(parameters)
       );
+
+      // Chrome runtime
+      window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {} };
+
+      // Override toString for common detection methods
+      const origToStr = Function.prototype.toString;
+      Function.prototype.toString = function() {
+        if (this === window.navigator.permissions.query) return "function query() { [native code] }";
+        return origToStr.call(this);
+      };
     });
 
     // Step 1: Navigate to publication to get domain context
