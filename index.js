@@ -331,6 +331,7 @@ async function main() {
           "- Start your response directly with --- (the section divider).\n" +
           "Use EXACTLY this format:\n\n" +
           "---\n\n" +
+          "**Today:** (one-line theme capturing the day's biggest story)\n\n" +
           "## The Big Story\n\n" +
           "(Pick the most important article. 2-3 paragraphs of analysis. Explain the significance.)\n\n" +
           "---\n\n" +
